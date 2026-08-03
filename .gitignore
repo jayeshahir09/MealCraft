@@ -13,3 +13,6 @@ backend/target/
 .vscode/
 *.iml
 .DS_Store
+
+# Environment secrets — never commit
+.env

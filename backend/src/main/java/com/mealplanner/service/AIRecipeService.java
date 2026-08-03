@@ -67,15 +67,15 @@ public class AIRecipeService {
     }
 
     private List<AiRecipeDTO> callWithRetry(String prompt) {
+        String rawResponse = llmClient.callLLM(prompt);
         try {
-            String rawResponse = llmClient.callLLM(prompt);
             return responseParser.parse(rawResponse);
-        } catch (AIServiceException e) {
-            log.warn("First LLM attempt failed ({}), retrying with stricter prompt...", e.getMessage());
-            // Retry once with a stricter prompt prefix
+        } catch (Exception parseException) {
+            log.warn("Failed to parse LLM response, retrying with stricter prompt: {}", parseException.getMessage());
+            // Retry once with a stricter prompt prefix — same model rotation applies
             String strictPrompt = "RESPOND ONLY WITH A JSON ARRAY. NO TEXT BEFORE OR AFTER.\n\n" + prompt;
-            String rawResponse = llmClient.callLLM(strictPrompt);
-            return responseParser.parse(rawResponse);
+            String retryResponse = llmClient.callLLM(strictPrompt);
+            return responseParser.parse(retryResponse);
         }
     }
 
