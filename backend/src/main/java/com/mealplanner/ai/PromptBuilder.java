@@ -13,9 +13,10 @@ public class PromptBuilder {
         StringBuilder sb = new StringBuilder();
 
         sb.append("""
-            You are a professional recipe assistant. Given the ingredients and constraints below, suggest 3-5 recipes.
-            IMPORTANT: Respond ONLY with a valid JSON array. No markdown, no preamble, no explanation, no ```json wrapper.
-            Start your response with [ and end with ].
+            You are a professional recipe assistant.
+            CRITICAL: Respond ONLY with a valid JSON array. No markdown, no preamble, no explanation.
+            Your response MUST start with [ and end with ].
+            Suggest EXACTLY 3 recipes. Keep steps to 6 or fewer per recipe.
             
             """);
 
@@ -41,18 +42,13 @@ public class PromptBuilder {
             sb.append("Maximum cooking time: ").append(request.getMaxTimeMinutes()).append(" minutes\n");
         }
 
+        // Compact schema — fewer tokens than a full example object
         sb.append("""
             
-            Required JSON schema for EACH recipe in the array:
-            {
-              "title": "string",
-              "cuisine": "string",
-              "usedIngredients": ["string"],
-              "missingIngredients": [{"name": "string", "quantity": "string", "unit": "string"}],
-              "steps": ["string"],
-              "estimatedTimeMinutes": number,
-              "estimatedCalories": number
-            }
+            Each object in the array MUST have exactly these fields (no extras):
+            "title"(string), "cuisine"(string), "usedIngredients"([string]),
+            "missingIngredients"([{"name":string,"quantity":string,"unit":string}]),
+            "steps"([string], max 6), "estimatedTimeMinutes"(integer), "estimatedCalories"(integer)
             """);
 
         return sb.toString();

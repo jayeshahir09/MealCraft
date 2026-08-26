@@ -6,7 +6,7 @@ import org.springframework.cache.annotation.EnableCaching;
 
 @SpringBootApplication
 @EnableCaching
-public class MealPlannerApplication {
+public class    MealPlannerApplication {
     public static void main(String[] args) {
         SpringApplication.run(MealPlannerApplication.class, args);
     }

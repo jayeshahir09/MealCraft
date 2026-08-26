@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -17,11 +18,20 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class LLMClient {
 
     private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
+
+    public LLMClient(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+        // Reuse a single RestTemplate with explicit timeouts (avoids creating one per call)
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);  // 10 s to establish connection
+        factory.setReadTimeout(180_000);    // 3 min to read (free LLMs are slow)
+        this.restTemplate = new RestTemplate(factory);
+    }
 
     @Value("${openrouter.api.key}")
     private String apiKey;
@@ -30,7 +40,7 @@ public class LLMClient {
     private String baseUrl;
 
     // Comma-separated list of models to try in order
-    @Value("${openrouter.models:openai/gpt-oss-20b:free,inclusionai/ling-3.0-flash:free,nvidia/nemotron-3-super-120b-a12b:free}")
+    @Value("${openrouter.models:openrouter/free,minimax/minimax-m3:free,minimax/minimax-m2.7:free,nvidia/nemotron-3-super-120b-a12b:free,nvidia/nemotron-3.5-lightning:free}")
     private String modelsConfig;
 
     public String callLLM(String prompt) {
@@ -72,8 +82,6 @@ public class LLMClient {
     }
 
     private String callModel(String modelId, String prompt) {
-        RestTemplate restTemplate = new RestTemplate();
-
         Map<String, Object> requestBody = Map.of(
             "model", modelId,
             "messages", List.of(
@@ -81,7 +89,7 @@ public class LLMClient {
                 Map.of("role", "user", "content", prompt)
             ),
             "temperature", 0.7,
-            "max_tokens", 2000
+            "max_tokens", 3500   // increased: 2000 was causing truncation on 3-5 recipe responses
         );
 
         HttpHeaders headers = new HttpHeaders();
