@@ -36,6 +36,22 @@ function AppShell() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Lock background scroll and add active class when sidebar is open on mobile
+  useEffect(() => {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile && sidebarOpen) {
+      document.body.classList.add('mobile-sidebar-open');
+      document.documentElement.classList.add('mobile-sidebar-open');
+    } else {
+      document.body.classList.remove('mobile-sidebar-open');
+      document.documentElement.classList.remove('mobile-sidebar-open');
+    }
+    return () => {
+      document.body.classList.remove('mobile-sidebar-open');
+      document.documentElement.classList.remove('mobile-sidebar-open');
+    };
+  }, [sidebarOpen]);
+
   // Auto close drawer on mobile when navigating
   useEffect(() => {
     if (window.innerWidth <= 768) {

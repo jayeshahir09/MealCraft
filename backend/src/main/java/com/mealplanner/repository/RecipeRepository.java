@@ -19,4 +19,6 @@ public interface RecipeRepository extends JpaRepository<Recipe, Long> {
 
     @Query("SELECT r FROM Recipe r WHERE r.user.id = :userId AND lower(r.title) LIKE lower(concat('%', :query, '%'))")
     List<Recipe> searchByTitle(@Param("userId") Long userId, @Param("query") String query);
+
+    Optional<Recipe> findByUserIdAndTitleIgnoreCase(Long userId, String title);
 }

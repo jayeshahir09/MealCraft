@@ -18,7 +18,10 @@ export default function SavedRecipesPage() {
     setLoading(true);
     try {
       const res = await getSavedRecipes({ query: query || undefined, cuisine: cuisine || undefined });
-      setRecipes(res.data);
+      const raw = Array.isArray(res.data) ? res.data : [];
+      // Guarantee unique collection by title
+      const unique = Array.from(new Map(raw.map(r => [r.title?.trim().toLowerCase(), r])).values());
+      setRecipes(unique);
     } catch { toast.error('Failed to load recipes'); }
     finally { setLoading(false); }
   };

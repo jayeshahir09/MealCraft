@@ -304,8 +304,24 @@ export default function RecipeDetailModal({
               className="btn btn-primary recipe-footer-btn"
             >
               <BookmarkPlus size={18} />
-              <span>Save Recipe</span>
+              <span>Save to Collection</span>
             </button>
+          )}
+
+          {isSaved && (
+            <div
+              className="btn btn-secondary recipe-footer-btn"
+              style={{
+                cursor: 'default',
+                background: 'rgba(52, 211, 153, 0.15)',
+                color: '#10b981',
+                borderColor: 'rgba(52, 211, 153, 0.45)',
+                fontWeight: 600
+              }}
+            >
+              <CheckCircle2 size={18} />
+              <span>Saved in Collection</span>
+            </div>
           )}
 
           {onAssign && (

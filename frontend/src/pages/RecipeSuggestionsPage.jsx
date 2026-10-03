@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
-import { suggestRecipes, saveRecipe } from '../api/recipeApi';
+import { suggestRecipes, saveRecipe, getSavedRecipes } from '../api/recipeApi';
 import { getPantry } from '../api/pantryApi';
 import { getPreferences } from '../api/shoppingListApi';
-import { assignRecipe } from '../api/mealPlanApi';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { getRecipeImage, handleImageError } from '../utils/foodImages';
@@ -14,8 +12,7 @@ import CustomDropdown from '../components/common/CustomDropdown';
 import { POPULAR_CUISINES, ALL_DIETS } from '../utils/cuisines';
 import {
   Sparkles, Clock, Flame, ChefHat, BookmarkPlus, RefreshCw,
-  X, Plus, Zap, Utensils, CheckCircle2,
-  CalendarPlus, PlusCircle, Check, Globe, Salad
+  X, Plus, Zap, Utensils, CheckCircle2, PlusCircle, Check, Globe, Salad, Bookmark
 } from 'lucide-react';
 
 export default function RecipeSuggestionsPage() {
@@ -31,17 +28,27 @@ export default function RecipeSuggestionsPage() {
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
-  const [assigningRecipe, setAssigningRecipe] = useState(null);
+  const [savedRecipeTitles, setSavedRecipeTitles] = useState(new Set());
+  const [savingRecipeTitle, setSavingRecipeTitle] = useState(null);
   const [remaining, setRemaining] = useState(null);
   const [pantryItems, setPantryItems] = useState([]);
 
-  // Fetch real pantry items and user preferences on mount
+  // Fetch real pantry items, user preferences, and existing saved recipes on mount
   useEffect(() => {
     getPantry()
       .then(res => {
         if (res.data && Array.isArray(res.data) && res.data.length > 0) {
           const names = res.data.map(item => item.ingredientName || item.name).filter(Boolean);
           setPantryItems(names);
+        }
+      })
+      .catch(() => {});
+
+    getSavedRecipes({})
+      .then(res => {
+        if (res.data && Array.isArray(res.data)) {
+          const titles = new Set(res.data.map(r => r.title?.trim().toLowerCase()).filter(Boolean));
+          setSavedRecipeTitles(titles);
         }
       })
       .catch(() => {});
@@ -163,11 +170,20 @@ export default function RecipeSuggestionsPage() {
   };
 
   const handleSave = async (recipe) => {
+    const key = recipe.title?.trim().toLowerCase();
+    if (savedRecipeTitles.has(key)) {
+      toast('Recipe is already in your saved cookbook! 📖', { icon: '✨' });
+      return;
+    }
+    setSavingRecipeTitle(recipe.title);
     try {
       await saveRecipe(recipe);
+      setSavedRecipeTitles(prev => new Set([...prev, key]));
       toast.success(`"${recipe.title}" saved to your cookbook! 📖`);
     } catch {
       toast.error('Failed to save recipe');
+    } finally {
+      setSavingRecipeTitle(null);
     }
   };
 
@@ -804,32 +820,56 @@ export default function RecipeSuggestionsPage() {
                             borderRadius: '0.75rem',
                             fontWeight: 600,
                             justifyContent: 'center',
-                            padding: '0.65rem 1rem'
+                            padding: '0.65rem 0.85rem'
                           }}
                           onClick={() => setSelectedRecipe(recipe)}
                         >
                           <ChefHat size={16} />
-                          <span>View</span>
+                          <span>View Steps</span>
                         </button>
 
-                        <button
-                          className="btn btn-primary"
-                          style={{
-                            flex: 1,
-                            borderRadius: '0.75rem',
-                            background: 'var(--primary)',
-                            color: '#ffffff',
-                            fontWeight: 600,
-                            justifyContent: 'center',
-                            padding: '0.65rem 1rem',
-                            border: '1px solid rgba(159, 64, 45, 0.5)',
-                            boxShadow: '0 4px 12px rgba(159, 64, 45, 0.3)'
-                          }}
-                          onClick={() => setAssigningRecipe(recipe)}
-                        >
-                          <CalendarPlus size={16} />
-                          <span>Assign</span>
-                        </button>
+                        {(() => {
+                          const isAlreadySaved = savedRecipeTitles.has(recipe.title?.trim().toLowerCase());
+                          const isSavingThis = savingRecipeTitle === recipe.title;
+
+                          return (
+                            <button
+                              className={isAlreadySaved ? "btn btn-secondary" : "btn btn-primary"}
+                              style={{
+                                flex: 1.15,
+                                borderRadius: '0.75rem',
+                                background: isAlreadySaved ? 'rgba(52, 211, 153, 0.15)' : 'var(--primary)',
+                                color: isAlreadySaved ? '#10b981' : '#ffffff',
+                                border: isAlreadySaved ? '1.5px solid rgba(52, 211, 153, 0.45)' : '1px solid rgba(159, 64, 45, 0.5)',
+                                fontWeight: 600,
+                                justifyContent: 'center',
+                                padding: '0.65rem 0.85rem',
+                                boxShadow: isAlreadySaved ? 'none' : '0 4px 12px rgba(159, 64, 45, 0.3)',
+                                transition: 'all 0.2s ease'
+                              }}
+                              disabled={isSavingThis}
+                              onClick={() => handleSave(recipe)}
+                              title={isAlreadySaved ? "Saved to your unique cookbook" : "Save recipe to your collection"}
+                            >
+                              {isSavingThis ? (
+                                <>
+                                  <RefreshCw size={15} className="animate-spin" />
+                                  <span>Saving...</span>
+                                </>
+                              ) : isAlreadySaved ? (
+                                <>
+                                  <CheckCircle2 size={15} style={{ color: '#10b981' }} />
+                                  <span>Saved</span>
+                                </>
+                              ) : (
+                                <>
+                                  <BookmarkPlus size={15} />
+                                  <span>Save Recipe</span>
+                                </>
+                              )}
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -844,137 +884,11 @@ export default function RecipeSuggestionsPage() {
       {selectedRecipe && (
         <RecipeDetailModal
           recipe={selectedRecipe}
+          isSaved={savedRecipeTitles.has(selectedRecipe.title?.trim().toLowerCase())}
           onClose={() => setSelectedRecipe(null)}
           onSave={() => handleSave(selectedRecipe)}
-          onAssign={() => {
-            const r = selectedRecipe;
-            setSelectedRecipe(null);
-            setAssigningRecipe(r);
-          }}
-        />
-      )}
-
-      {/* Assign to Meal Plan Glass Modal */}
-      {assigningRecipe && (
-        <AssignMealModal
-          recipe={assigningRecipe}
-          onClose={() => setAssigningRecipe(null)}
-          onSaved={() => handleSave(assigningRecipe)}
         />
       )}
     </div>
-  );
-}
-
-function AssignMealModal({ recipe, onClose, onSaved }) {
-  const [day, setDay] = useState('MONDAY');
-  const [mealType, setMealType] = useState('DINNER');
-  const [saving, setSaving] = useState(false);
-
-  const days = [
-    { id: 'MONDAY', label: 'Mon' },
-    { id: 'TUESDAY', label: 'Tue' },
-    { id: 'WEDNESDAY', label: 'Wed' },
-    { id: 'THURSDAY', label: 'Thu' },
-    { id: 'FRIDAY', label: 'Fri' },
-    { id: 'SATURDAY', label: 'Sat' },
-    { id: 'SUNDAY', label: 'Sun' },
-  ];
-
-  const meals = ['BREAKFAST', 'LUNCH', 'DINNER'];
-
-  const getCurrentMonday = () => {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-    const monday = new Date(now.setDate(diff));
-    return monday.toISOString().split('T')[0];
-  };
-
-  const handleAssign = async () => {
-    setSaving(true);
-    try {
-      const savedRes = await saveRecipe(recipe);
-      const recipeId = savedRes.data?.id;
-      const weekStart = getCurrentMonday();
-      await assignRecipe(weekStart, day, mealType, recipeId);
-      toast.success(`Assigned to ${day.slice(0,3)} ${mealType.toLowerCase()}! 🗓️`);
-      if (onSaved) onSaved();
-      onClose();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to assign meal');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return createPortal(
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal glass-panel" style={{ borderRadius: '1.25rem', padding: '2rem', maxWidth: '480px', width: '90%', border: '1.5px solid rgba(159, 64, 45, 0.25)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.35rem', color: 'var(--on-background)', fontWeight: 700 }}>
-            Schedule Recipe
-          </h3>
-          <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Close modal"><X size={18} /></button>
-        </div>
-
-        <p style={{ fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '1.25rem' }}>
-          Assign <strong>"{recipe.title}"</strong> to your weekly meal planner.
-        </p>
-
-        <div style={{ marginBottom: '1.25rem' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-            Select Day
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.35rem' }}>
-            {days.map(d => (
-              <button
-                key={d.id}
-                type="button"
-                className={`stitch-pill-btn${day === d.id ? ' active' : ''}`}
-                style={{ padding: '0.45rem 0.2rem', textAlign: 'center', fontSize: '0.8rem' }}
-                onClick={() => setDay(d.id)}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '1.75rem' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-            Select Meal Slot
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
-            {meals.map(m => (
-              <button
-                key={m}
-                type="button"
-                className={`stitch-pill-btn${mealType === m ? ' active' : ''}`}
-                style={{ textAlign: 'center', textTransform: 'capitalize' }}
-                onClick={() => setMealType(m)}
-              >
-                {m.toLowerCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button
-            className="btn btn-primary"
-            style={{ flex: 1, background: 'var(--primary)', color: '#fff', borderRadius: '0.75rem', justifyContent: 'center' }}
-            onClick={handleAssign}
-            disabled={saving}
-          >
-            {saving ? 'Assigning...' : 'Confirm Schedule'}
-          </button>
-          <button className="btn btn-secondary" onClick={onClose} style={{ borderRadius: '0.75rem' }}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
   );
 }

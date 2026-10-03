@@ -20,15 +20,17 @@ export default function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Mobile Backdrop */}
-      {isOpen && (
-        <div className="sidebar-backdrop" onClick={onClose} />
-      )}
+      {/* Mobile Backdrop with Blur */}
+      <div
+        className={`sidebar-backdrop ${isOpen ? 'active' : ''}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
-      <aside className={`sidebar glass-panel ${isOpen ? 'open' : ''}`}>
+      <aside className={`sidebar glass-panel ${isOpen ? 'open' : ''}`} aria-label="Main Navigation">
         {/* Header */}
         <div className="sidebar-header">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div>
               <h1 className="sidebar-title" style={{ color: 'var(--primary)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
                 MealCraft Pro
@@ -39,12 +41,13 @@ export default function Sidebar({ isOpen, onClose }) {
             </div>
             {onClose && (
               <button
+                type="button"
                 onClick={onClose}
-                className="btn btn-ghost btn-icon mobile-close-btn"
-                style={{ display: isOpen ? 'flex' : 'none' }}
-                aria-label="Close sidebar"
+                className="mobile-close-btn"
+                aria-label="Close navigation sidebar"
+                title="Close sidebar"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             )}
           </div>

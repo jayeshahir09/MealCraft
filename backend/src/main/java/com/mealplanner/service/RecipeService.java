@@ -36,20 +36,35 @@ public class RecipeService {
     @Transactional
     public RecipeDTO saveRecipe(String email, AiRecipeDTO aiRecipe) {
         User user = getUser(email);
+        String recipeTitle = aiRecipe.getTitle() != null ? aiRecipe.getTitle().trim() : "";
 
         // Build full ingredient list from usedIngredients + missingIngredients
-        List<Recipe.IngredientItem> ingredients = aiRecipe.getUsedIngredients().stream()
-                .map(name -> new Recipe.IngredientItem(name, null, null))
-                .collect(Collectors.toList());
+        List<Recipe.IngredientItem> ingredients = aiRecipe.getUsedIngredients() != null
+                ? aiRecipe.getUsedIngredients().stream()
+                    .map(name -> new Recipe.IngredientItem(name, null, null))
+                    .collect(Collectors.toList())
+                : new java.util.ArrayList<>();
 
         if (aiRecipe.getMissingIngredients() != null) {
             aiRecipe.getMissingIngredients().forEach(mi ->
                 ingredients.add(new Recipe.IngredientItem(mi.getName(), mi.getQuantity(), mi.getUnit())));
         }
 
+        // Check if recipe with identical title already exists for this user (ensure unique collection)
+        Optional<Recipe> existingOpt = recipeRepository.findByUserIdAndTitleIgnoreCase(user.getId(), recipeTitle);
+        if (existingOpt.isPresent()) {
+            Recipe existing = existingOpt.get();
+            existing.setIngredients(ingredients);
+            existing.setSteps(aiRecipe.getSteps());
+            existing.setCuisine(aiRecipe.getCuisine());
+            existing.setEstimatedTimeMinutes(aiRecipe.getEstimatedTimeMinutes());
+            existing.setEstimatedCalories(aiRecipe.getEstimatedCalories());
+            return toDTO(recipeRepository.save(existing));
+        }
+
         Recipe recipe = Recipe.builder()
                 .user(user)
-                .title(aiRecipe.getTitle())
+                .title(recipeTitle)
                 .ingredients(ingredients)
                 .steps(aiRecipe.getSteps())
                 .cuisine(aiRecipe.getCuisine())
