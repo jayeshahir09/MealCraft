@@ -1,0 +1,31 @@
+export const POPULAR_CUISINES = [
+  { id: '', label: 'All Cuisines', emoji: '🌎', desc: 'Any regional culinary style' },
+  { id: 'Italian', label: 'Italian', emoji: '🍝', desc: 'Pastas, risottos, artisanal pizza' },
+  { id: 'Mexican', label: 'Mexican', emoji: '🌮', desc: 'Tacos, salsas, zesty street food' },
+  { id: 'Indian', label: 'Indian', emoji: '🍛', desc: 'Fragrant curries, tandoor & spices' },
+  { id: 'Japanese', label: 'Japanese', emoji: '🍣', desc: 'Ramen, teriyaki, delicate umami' },
+  { id: 'Chinese', label: 'Chinese', emoji: '🥢', desc: 'Wok stir-fries, dim sum & noodles' },
+  { id: 'Mediterranean', label: 'Mediterranean', emoji: '🫒', desc: 'Olive oil, fresh herbs & grilled dishes' },
+  { id: 'Thai', label: 'Thai', emoji: '🍜', desc: 'Pad Thai, green curry & lemongrass' },
+  { id: 'Korean', label: 'Korean', emoji: '🍲', desc: 'Gochujang, bulgogi & kimchi bowls' },
+  { id: 'American', label: 'American', emoji: '🍔', desc: 'Classic comfort, BBQs & grills' },
+  { id: 'French', label: 'French', emoji: '🥐', desc: 'Rich sauces, bistros & gourmet classics' },
+  { id: 'Spanish', label: 'Spanish', emoji: '🥘', desc: 'Tapas, paella & saffron aromatics' },
+  { id: 'Middle Eastern', label: 'Middle Eastern', emoji: '🧆', desc: 'Falafel, shawarma, hummus & tahini' },
+  { id: 'Greek', label: 'Greek', emoji: '🥗', desc: 'Feta, souvlaki, tzatziki & gyros' },
+  { id: 'Vietnamese', label: 'Vietnamese', emoji: '🍲', desc: 'Pho, fresh rolls & aromatic herbs' },
+];
+
+export const ALL_DIETS = [
+  { id: 'NONE', label: 'Any Diet', emoji: '🍽️', desc: 'No dietary restrictions' },
+  { id: 'VEGETARIAN', label: 'Vegetarian', emoji: '🥦', desc: 'Plant-based with dairy & eggs' },
+  { id: 'VEGAN', label: 'Vegan', emoji: '🌱', desc: '100% plant-exclusive nutrition' },
+  { id: 'KETO', label: 'Keto', emoji: '🥑', desc: 'Ultra low-carb, healthy fats' },
+  { id: 'HIGH_PROTEIN', label: 'High-Protein', emoji: '💪', desc: 'Lean protein maximized' },
+  { id: 'GLUTEN_FREE', label: 'Gluten-Free', emoji: '🌾', desc: 'Safe for celiac & wheat-free' },
+  { id: 'DAIRY_FREE', label: 'Dairy-Free', emoji: '🥛', desc: 'Zero milk, cheese, or lactose' },
+  { id: 'LOW_CARB', label: 'Low-Carb', emoji: '🥗', desc: 'Reduced carbohydrate intake' },
+  { id: 'MEDITERRANEAN', label: 'Mediterranean', emoji: '🫒', desc: 'Heart-healthy fats & veggies' },
+  { id: 'PALEO', label: 'Paleo', emoji: '🥩', desc: 'Whole unprocessed hunter-gatherer' },
+  { id: 'PESCATARIAN', label: 'Pescatarian', emoji: '🐟', desc: 'Plant-forward with seafood' },
+];

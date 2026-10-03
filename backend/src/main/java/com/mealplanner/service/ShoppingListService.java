@@ -83,6 +83,14 @@ public class ShoppingListService {
         return toDTO(list);
     }
 
+    public ShoppingListDTO getShoppingListByMealPlan(String email, Long mealPlanId) {
+        User user = getUser(email);
+        return shoppingListRepository.findByMealPlanId(mealPlanId)
+                .filter(l -> l.getUser().getId().equals(user.getId()))
+                .map(this::toDTO)
+                .orElse(null);
+    }
+
     @Transactional
     public ShoppingListDTO.ShoppingListItemDTO toggleItem(String email, Long itemId) {
         User user = getUser(email);

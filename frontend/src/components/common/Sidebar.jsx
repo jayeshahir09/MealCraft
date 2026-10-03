@@ -1,61 +1,107 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import {
-  LayoutDashboard, ChefHat, BookMarked, Calendar,
-  ShoppingCart, User, LogOut, FlaskConical
+  LayoutDashboard, Sparkles, BookMarked, Calendar,
+  ShoppingCart, BarChart2, User, Bell, X, PlusCircle
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/suggest', icon: ChefHat, label: 'AI Recipes' },
+  { to: '/suggest', icon: Sparkles, label: 'AI Studio', badge: 'AI' },
+  { to: '/planner', icon: Calendar, label: 'Planner' },
   { to: '/saved', icon: BookMarked, label: 'Saved Recipes' },
-  { to: '/planner', icon: Calendar, label: 'Meal Planner' },
-  { to: '/shopping', icon: ShoppingCart, label: 'Shopping List' },
-  { to: '/analytics', icon: FlaskConical, label: 'Analytics' },
+  { to: '/shopping', icon: ShoppingCart, label: 'Shopping' },
+  { to: '/analytics', icon: BarChart2, label: 'Analytics' },
+  { to: '/notifications', icon: Bell, label: 'Alerts' },
   { to: '/profile', icon: User, label: 'Profile' },
 ];
 
-export default function Sidebar() {
-  const { user, logout } = useAuth();
+export default function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">🍽️</div>
-        <span className="sidebar-logo-text">MealCraft</span>
-      </div>
+    <>
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div className="sidebar-backdrop" onClick={onClose} />
+      )}
 
-      <nav className="sidebar-nav">
-        {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-          >
-            <Icon size={18} className="nav-item-icon" />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="sidebar-footer">
-        <div style={{ padding: '0.5rem 0', marginBottom: '0.5rem' }}>
-          <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-            {user?.name}
-          </p>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user?.email}</p>
+      <aside className={`sidebar glass-panel ${isOpen ? 'open' : ''}`}>
+        {/* Header */}
+        <div className="sidebar-header">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h1 className="sidebar-title" style={{ color: 'var(--primary)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+                MealCraft Pro
+              </h1>
+              <p className="sidebar-subtitle" style={{ color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
+                Kitchen Studio
+              </p>
+            </div>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="btn btn-ghost btn-icon mobile-close-btn"
+                style={{ display: isOpen ? 'flex' : 'none' }}
+                aria-label="Close sidebar"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
         </div>
-        <button onClick={handleLogout} className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'flex-start' }}>
-          <LogOut size={16} />
-          Sign out
-        </button>
-      </div>
-    </aside>
+
+        {/* Navigation Items */}
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map(({ to, icon: Icon, label, badge }) => (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={() => onClose && onClose()}
+              className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+            >
+              <Icon size={19} className="nav-item-icon" />
+              <span style={{ flex: 1 }}>{label}</span>
+              {badge && (
+                <span style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  padding: '2px 6px',
+                  borderRadius: '9999px',
+                  background: 'rgba(159, 64, 45, 0.15)',
+                  color: 'var(--primary)',
+                  border: '1px solid rgba(159, 64, 45, 0.3)'
+                }}>
+                  {badge}
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Bottom CTA */}
+        <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
+          <button
+            onClick={() => {
+              navigate('/suggest');
+              if (onClose) onClose();
+            }}
+            className="btn btn-primary"
+            style={{
+              width: '100%',
+              justifyContent: 'center',
+              padding: '0.85rem 1rem',
+              borderRadius: '0.75rem',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+              gap: '0.5rem'
+            }}
+          >
+            <PlusCircle size={18} />
+            <span>New AI Recipe</span>
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
+

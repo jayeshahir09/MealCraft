@@ -90,14 +90,21 @@ public class MealPlanService {
     public MealPlanDTO toDTO(MealPlan plan) {
         List<MealPlanDTO.MealPlanEntryDTO> entries = plan.getEntries() == null ? List.of() :
                 plan.getEntries().stream()
-                        .map(e -> MealPlanDTO.MealPlanEntryDTO.builder()
-                                .id(e.getId())
-                                .recipeId(e.getRecipe().getId())
-                                .recipeTitle(e.getRecipe().getTitle())
-                                .estimatedCalories(e.getRecipe().getEstimatedCalories())
-                                .dayOfWeek(e.getDayOfWeek().name())
-                                .mealType(e.getMealType().name())
-                                .build())
+                        .map(e -> {
+                            Recipe r = e.getRecipe();
+                            return MealPlanDTO.MealPlanEntryDTO.builder()
+                                    .id(e.getId())
+                                    .recipeId(r != null ? r.getId() : null)
+                                    .recipeTitle(r != null ? r.getTitle() : null)
+                                    .estimatedCalories(r != null ? r.getEstimatedCalories() : null)
+                                    .estimatedTimeMinutes(r != null ? r.getEstimatedTimeMinutes() : null)
+                                    .cuisine(r != null ? r.getCuisine() : null)
+                                    .ingredients(r != null ? r.getIngredients() : null)
+                                    .steps(r != null ? r.getSteps() : null)
+                                    .dayOfWeek(e.getDayOfWeek().name())
+                                    .mealType(e.getMealType().name())
+                                    .build();
+                        })
                         .collect(Collectors.toList());
 
         return MealPlanDTO.builder()

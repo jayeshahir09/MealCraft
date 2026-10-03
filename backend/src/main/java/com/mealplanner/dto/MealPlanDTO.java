@@ -1,5 +1,6 @@
 package com.mealplanner.dto;
 
+import com.mealplanner.entity.Recipe;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,6 +27,10 @@ public class MealPlanDTO {
         private Long recipeId;
         private String recipeTitle;
         private Integer estimatedCalories;
+        private Integer estimatedTimeMinutes;
+        private String cuisine;
+        private List<Recipe.IngredientItem> ingredients;
+        private List<String> steps;
         private String dayOfWeek;
         private String mealType;
     }

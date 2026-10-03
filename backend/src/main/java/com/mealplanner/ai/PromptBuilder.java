@@ -39,7 +39,11 @@ public class PromptBuilder {
         }
 
         if (request.getMaxTimeMinutes() != null) {
-            sb.append("Maximum cooking time: ").append(request.getMaxTimeMinutes()).append(" minutes\n");
+            sb.append("Maximum preparation and cooking time: ")
+              .append(request.getMaxTimeMinutes())
+              .append(" minutes (CRITICAL RULE: each recipe's estimatedTimeMinutes MUST be <= ")
+              .append(request.getMaxTimeMinutes())
+              .append(" minutes)\n");
         }
 
         // Compact schema — fewer tokens than a full example object

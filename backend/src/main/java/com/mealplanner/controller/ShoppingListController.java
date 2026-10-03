@@ -23,6 +23,14 @@ public class ShoppingListController {
         return ResponseEntity.ok(shoppingListService.generateShoppingList(userDetails.getUsername(), mealPlanId));
     }
 
+    @GetMapping("/plan/{mealPlanId}")
+    public ResponseEntity<ShoppingListDTO> getShoppingListByMealPlan(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long mealPlanId) {
+        ShoppingListDTO dto = shoppingListService.getShoppingListByMealPlan(userDetails.getUsername(), mealPlanId);
+        return ResponseEntity.ok(dto);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ShoppingListDTO> getShoppingList(
             @AuthenticationPrincipal UserDetails userDetails,

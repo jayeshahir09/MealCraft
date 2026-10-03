@@ -48,6 +48,7 @@ public class Recipe {
     @Column(name = "source")
     private RecipeSource source;
 
+    @Builder.Default
     @Column(name = "tags")
     private String[] tags = new String[]{};
 

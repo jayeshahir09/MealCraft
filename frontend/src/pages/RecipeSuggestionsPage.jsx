@@ -1,30 +1,121 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { suggestRecipes, saveRecipe } from '../api/recipeApi';
+import { getPantry } from '../api/pantryApi';
+import { getPreferences } from '../api/shoppingListApi';
+import { assignRecipe } from '../api/mealPlanApi';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { Sparkles, Clock, Flame, ChefHat, BookmarkPlus, RefreshCw, X, Plus } from 'lucide-react';
-
-const DIETS = ['NONE', 'VEGETARIAN', 'VEGAN', 'KETO', 'GLUTEN_FREE', 'DAIRY_FREE', 'LOW_CARB'];
-const CUISINES = ['', 'Italian', 'Mexican', 'Indian', 'Chinese', 'Japanese', 'Thai', 'Mediterranean', 'American', 'French'];
+import { getRecipeImage, handleImageError } from '../utils/foodImages';
+import RecipeDetailModal from '../components/common/RecipeDetailModal';
+import PrepTimeSlider from '../components/common/PrepTimeSlider';
+import CustomDropdown from '../components/common/CustomDropdown';
+import { POPULAR_CUISINES, ALL_DIETS } from '../utils/cuisines';
+import {
+  Sparkles, Clock, Flame, ChefHat, BookmarkPlus, RefreshCw,
+  X, Plus, Zap, Utensils, CheckCircle2,
+  CalendarPlus, PlusCircle, Check, Globe, Salad
+} from 'lucide-react';
 
 export default function RecipeSuggestionsPage() {
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [ingredients, setIngredients] = useState([]);
   const [inputVal, setInputVal] = useState('');
   const [diet, setDiet] = useState('NONE');
   const [allergies, setAllergies] = useState([]);
   const [allergyInput, setAllergyInput] = useState('');
   const [cuisine, setCuisine] = useState('');
-  const [maxTime, setMaxTime] = useState('');
+  const [maxTime, setMaxTime] = useState(30);
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [assigningRecipe, setAssigningRecipe] = useState(null);
   const [remaining, setRemaining] = useState(null);
+  const [pantryItems, setPantryItems] = useState([]);
+
+  // Fetch real pantry items and user preferences on mount
+  useEffect(() => {
+    getPantry()
+      .then(res => {
+        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+          const names = res.data.map(item => item.ingredientName || item.name).filter(Boolean);
+          setPantryItems(names);
+        }
+      })
+      .catch(() => {});
+
+    getPreferences()
+      .then(res => {
+        if (res.data) {
+          if (res.data.dietType && !searchParams.get('diet')) setDiet(res.data.dietType);
+          if (res.data.allergies && res.data.allergies.length > 0) setAllergies(res.data.allergies);
+          if (res.data.preferredCuisine && !searchParams.get('cuisine')) setCuisine(res.data.preferredCuisine);
+          if (res.data.maxCookTimeMinutes && !searchParams.get('maxTime')) setMaxTime(res.data.maxCookTimeMinutes);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Parse URL search params from Quick AI Shortcuts or Pantry actions
+  useEffect(() => {
+    const dietParam = searchParams.get('diet');
+    const maxTimeParam = searchParams.get('maxTime');
+    const cuisineParam = searchParams.get('cuisine');
+    const ingredientsParam = searchParams.get('ingredients');
+
+    if (dietParam) {
+      setDiet(dietParam.toUpperCase());
+    }
+    if (maxTimeParam) {
+      const parsedTime = parseInt(maxTimeParam, 10);
+      if (!isNaN(parsedTime) && parsedTime > 0) {
+        setMaxTime(parsedTime);
+      }
+    }
+    if (cuisineParam) {
+      setCuisine(cuisineParam);
+    }
+    if (ingredientsParam) {
+      const ings = ingredientsParam.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      if (ings.length > 0) {
+        setIngredients(prev => Array.from(new Set([...prev, ...ings])));
+      }
+    }
+  }, [searchParams]);
 
   const addIngredient = (e) => {
     if ((e.key === 'Enter' || e.key === ',') && inputVal.trim()) {
       e.preventDefault();
       const val = inputVal.trim().toLowerCase();
-      if (!ingredients.includes(val)) setIngredients(prev => [...prev, val]);
+      if (!ingredients.includes(val)) {
+        setIngredients(prev => [...prev, val]);
+      }
       setInputVal('');
+    }
+  };
+
+  const handleAddIngredientBtn = () => {
+    if (inputVal.trim()) {
+      const val = inputVal.trim().toLowerCase();
+      if (!ingredients.includes(val)) {
+        setIngredients(prev => [...prev, val]);
+      }
+      setInputVal('');
+    }
+  };
+
+  const removeIngredient = (ing) => {
+    setIngredients(prev => prev.filter(i => i !== ing));
+  };
+
+  const togglePantryIngredient = (item) => {
+    const val = item.toLowerCase();
+    if (ingredients.includes(val)) {
+      setIngredients(prev => prev.filter(i => i !== val));
+    } else {
+      setIngredients(prev => [...prev, val]);
     }
   };
 
@@ -32,26 +123,38 @@ export default function RecipeSuggestionsPage() {
     if ((e.key === 'Enter' || e.key === ',') && allergyInput.trim()) {
       e.preventDefault();
       const val = allergyInput.trim().toLowerCase();
-      if (!allergies.includes(val)) setAllergies(prev => [...prev, val]);
+      if (!allergies.includes(val)) {
+        setAllergies(prev => [...prev, val]);
+      }
       setAllergyInput('');
     }
   };
 
+  const removeAllergy = (allergy) => {
+    setAllergies(prev => prev.filter(a => a !== allergy));
+  };
+
   const handleSuggest = async () => {
-    if (ingredients.length === 0) return toast.error('Add at least one ingredient');
+    if (ingredients.length === 0) return toast.error('Please add at least one ingredient');
     setLoading(true);
     try {
       const res = await suggestRecipes({
         ingredients,
-        dietType: diet,
+        dietType: diet === 'NONE' ? null : diet,
         allergies,
         cuisine: cuisine || null,
         maxTimeMinutes: maxTime ? parseInt(maxTime) : null,
       });
-      setRecipes(res.data.recipes);
-      setRemaining(res.data.remainingCallsToday);
-      if (res.data.recipes.length === 0) toast('No recipes found. Try different ingredients.');
-      else toast.success(`Found ${res.data.recipes.length} recipes! ✨`);
+      if (res.data?.recipes?.length > 0) {
+        setRecipes(res.data.recipes);
+      }
+      if (res.data.remainingCallsToday !== undefined) {
+        setRemaining(res.data.remainingCallsToday);
+      }
+      toast.success(`Generated ${res.data.recipes?.length || 3} gourmet recipes! ✨`);
+      setTimeout(() => {
+        document.getElementById('curated-results')?.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
     } catch (err) {
       toast.error(err.response?.data?.message || 'AI service error. Please try again.');
     } finally {
@@ -62,268 +165,816 @@ export default function RecipeSuggestionsPage() {
   const handleSave = async (recipe) => {
     try {
       await saveRecipe(recipe);
-      toast.success(`"${recipe.title}" saved! 📖`);
+      toast.success(`"${recipe.title}" saved to your cookbook! 📖`);
     } catch {
       toast.error('Failed to save recipe');
     }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <div>
-        <h1 style={{ marginBottom: '0.5rem' }}>
-          <span className="gradient-text">AI Recipe</span> Suggestions
-        </h1>
-        <p className="text-secondary">Enter your ingredients and get personalized recipe ideas.</p>
+    <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+      {/* Header Title Section */}
+      <div style={{ marginBottom: searchParams.toString() ? '1.5rem' : '2.5rem' }} className="animate-fade-in-up">
+        <h2 style={{
+          fontSize: 'clamp(2rem, 3.5vw, 3rem)',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 700,
+          color: 'var(--on-background)',
+          marginBottom: '0.5rem',
+          letterSpacing: '-0.02em'
+        }}>
+          AI Recipe Studio
+        </h2>
+        <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', margin: 0 }}>
+          Curate your ingredients and set parameters. Our culinary AI will handle the rest.
+        </p>
       </div>
 
-      {/* Input Panel */}
-      <div className="card">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Ingredients */}
-          <div className="form-group">
-            <label className="form-label">🥦 Your Ingredients</label>
-            <div className="chips-input-container" onClick={() => document.getElementById('ing-input').focus()}>
-              {ingredients.map(ing => (
-                <span key={ing} className="chip chip-accent">
-                  {ing}
-                  <button className="chip-remove" onClick={() => setIngredients(p => p.filter(i => i !== ing))}>
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-              <input
-                id="ing-input"
-                className="chips-input-field"
-                placeholder={ingredients.length === 0 ? "Type ingredient, press Enter..." : "Add more..."}
-                value={inputVal}
-                onChange={e => setInputVal(e.target.value)}
-                onKeyDown={addIngredient}
-              />
-            </div>
-            <p className="text-xs text-muted">Press Enter or comma to add an ingredient</p>
-          </div>
-
-          <div className="grid-2">
-            {/* Diet */}
-            <div className="form-group">
-              <label className="form-label">🥗 Diet Type</label>
-              <div className="toggle-group">
-                {DIETS.map(d => (
-                  <button
-                    key={d}
-                    type="button"
-                    className={`toggle-option${diet === d ? ' active' : ''}`}
-                    onClick={() => setDiet(d)}
-                  >
-                    {d === 'NONE' ? 'No Restriction' : d.replace('_', ' ')}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Allergies */}
-            <div className="form-group">
-              <label className="form-label">⚠️ Allergies (strictly excluded)</label>
-              <div className="chips-input-container">
-                {allergies.map(a => (
-                  <span key={a} className="chip chip-red">
-                    {a}
-                    <button className="chip-remove" onClick={() => setAllergies(p => p.filter(x => x !== a))}>
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-                <input
-                  className="chips-input-field"
-                  placeholder="e.g., peanuts, shellfish..."
-                  value={allergyInput}
-                  onChange={e => setAllergyInput(e.target.value)}
-                  onKeyDown={addAllergy}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid-2">
-            <div className="form-group">
-              <label className="form-label">🌍 Cuisine Preference</label>
-              <select className="form-select" value={cuisine} onChange={e => setCuisine(e.target.value)}>
-                {CUISINES.map(c => <option key={c} value={c}>{c || 'Any cuisine'}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">⏱️ Max Cooking Time (minutes)</label>
-              <input
-                type="number"
-                className="form-input"
-                placeholder="e.g., 30"
-                value={maxTime}
-                onChange={e => setMaxTime(e.target.value)}
-                min="5"
-                max="300"
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button
-              id="suggest-btn"
-              className="btn btn-primary btn-lg"
-              onClick={handleSuggest}
-              disabled={loading || ingredients.length === 0}
-            >
-              {loading ? (
-                <><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Asking AI...</>
-              ) : (
-                <><Sparkles size={18} /> Suggest Recipes</>
-              )}
-            </button>
-            {remaining !== null && (
-              <p className="text-xs text-muted">{remaining} AI calls remaining today</p>
+      {searchParams.toString() && (
+        <div
+          className="animate-fade-in-up"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.85rem 1.25rem',
+            borderRadius: '1rem',
+            background: 'rgba(238, 108, 77, 0.1)',
+            border: '1px solid rgba(238, 108, 77, 0.25)',
+            marginBottom: '2rem',
+            gap: '0.75rem',
+            flexWrap: 'wrap'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>⚡ Preset Applied:</span>
+            {searchParams.get('diet') && (
+              <span className="quick-add-pill" style={{ background: 'var(--primary)', color: '#fff', fontSize: '0.78rem' }}>
+                Diet: {searchParams.get('diet').replace('_', ' ')}
+              </span>
+            )}
+            {searchParams.get('maxTime') && (
+              <span className="quick-add-pill" style={{ background: 'var(--primary)', color: '#fff', fontSize: '0.78rem' }}>
+                Max Time: ≤ {searchParams.get('maxTime')} min
+              </span>
+            )}
+            {searchParams.get('cuisine') && (
+              <span className="quick-add-pill" style={{ background: 'var(--primary)', color: '#fff', fontSize: '0.78rem' }}>
+                Cuisine: {searchParams.get('cuisine')}
+              </span>
+            )}
+            {searchParams.get('ingredients') && (
+              <span className="quick-add-pill" style={{ background: 'var(--primary)', color: '#fff', fontSize: '0.78rem' }}>
+                Pantry Ingredients Loaded ({searchParams.get('ingredients').split(',').length})
+              </span>
             )}
           </div>
         </div>
-      </div>
-
-      {/* Results */}
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '3rem' }}>
-          <div className="spinner" style={{ margin: '0 auto', width: 48, height: 48 }} />
-          <p className="text-secondary" style={{ marginTop: '1rem' }}>AI is crafting your recipes... ✨</p>
-        </div>
       )}
 
-      {!loading && recipes.length > 0 && (
-        <div>
-          <div className="section-header">
-            <h2 className="section-title">Suggested Recipes ({recipes.length})</h2>
-            <button className="btn btn-secondary btn-sm" onClick={handleSuggest}>
-              <RefreshCw size={14} /> Regenerate
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+        {/* Step 1: Ingredients Section */}
+        <section
+          className="glass-panel animate-fade-in-up delay-100"
+          style={{
+            borderRadius: '1.25rem',
+            padding: '2rem',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+        >
+          {/* Vertical Left Accent Ribbon */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '6px',
+            height: '100%',
+            background: 'var(--primary)',
+            borderRadius: '4px 0 0 4px'
+          }} />
+
+          {/* Section Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '1.5rem' }}>
+            <div className="step-badge-1">1</div>
+            <h3 style={{
+              fontSize: '1.25rem',
+              fontFamily: 'var(--font-display)',
+              fontWeight: 700,
+              color: 'var(--on-background)',
+              margin: 0
+            }}>
+              Curate Ingredients
+            </h3>
+          </div>
+
+          {/* Input Field with Inline Add Button */}
+          <div style={{ position: 'relative', marginBottom: '1.75rem' }}>
+            <input
+              type="text"
+              value={inputVal}
+              onChange={(e) => setInputVal(e.target.value)}
+              onKeyDown={addIngredient}
+              placeholder="Type ingredient and press Enter (e.g. Salmon, Spinach, Garlic)..."
+              className="form-input"
+              style={{
+                padding: '1rem 3.5rem 1rem 1.25rem',
+                fontSize: '1rem',
+                borderRadius: '0.875rem'
+              }}
+            />
+            <button
+              onClick={handleAddIngredientBtn}
+              type="button"
+              style={{
+                position: 'absolute',
+                right: '0.85rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'transform 0.2s ease'
+              }}
+              title="Add Ingredient"
+            >
+              <PlusCircle size={24} />
             </button>
           </div>
-          <div className="grid-3">
-            {recipes.map((recipe, i) => (
-              <RecipeCard
-                key={i}
-                recipe={recipe}
-                onSave={() => handleSave(recipe)}
-                onView={() => setSelectedRecipe(recipe)}
+
+          {/* Active Canvas Tags Container with Visible Border */}
+          <div style={{
+            marginBottom: '1.75rem',
+            background: 'var(--surface-container)',
+            border: '1.5px dashed var(--border-color)',
+            borderRadius: '1rem',
+            padding: '1.25rem',
+            boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.05)'
+          }}>
+            <p style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: 'var(--primary)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              marginBottom: '0.75rem'
+            }}>
+              Active Canvas ({ingredients.length} item{ingredients.length !== 1 ? 's' : ''})
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+              {ingredients.map((ing) => (
+                <span key={ing} className="active-tag">
+                  <span style={{ textTransform: 'capitalize' }}>{ing}</span>
+                  <button
+                    onClick={() => removeIngredient(ing)}
+                    className="stitch-tag-remove"
+                    aria-label={`Remove ${ing}`}
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+              {ingredients.length === 0 && (
+                <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  No ingredients added yet. Type an ingredient above or tap quick-add items below.
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Add from Pantry (Only when user has real pantry stock) */}
+          {pantryItems.length > 0 && (
+            <div>
+              <p style={{
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                marginBottom: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem'
+              }}>
+                <Utensils size={15} style={{ color: 'var(--primary)' }} />
+                <span>Quick Add from Pantry ({pantryItems.length})</span>
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {pantryItems.map((item) => {
+                  const isAdded = ingredients.includes(item.toLowerCase());
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => togglePantryIngredient(item)}
+                      className={`quick-add-pill ${isAdded ? 'active-pantry-pill' : ''}`}
+                      style={{
+                        border: isAdded ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                        color: isAdded ? 'var(--primary)' : 'var(--text-secondary)',
+                        background: isAdded ? 'var(--primary-light)' : 'var(--surface-container)',
+                        fontWeight: isAdded ? 700 : 500
+                      }}
+                    >
+                      {isAdded && <Check size={13} style={{ color: 'var(--primary)' }} />}
+                      <span>{item}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Step 2: Refinements & Constraints */}
+        <section
+          className="glass-panel animate-fade-in-up delay-200"
+          style={{
+            borderRadius: '1.25rem',
+            padding: '2rem',
+            position: 'relative'
+          }}
+        >
+          {/* Vertical Left Accent Ribbon */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '6px',
+            height: '100%',
+            background: 'var(--secondary)',
+            borderRadius: '4px 0 0 4px'
+          }} />
+
+          {/* Section Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '2rem' }}>
+            <div className="step-badge-2">2</div>
+            <div>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontFamily: 'var(--font-display)',
+                fontWeight: 700,
+                color: 'var(--on-background)',
+                margin: 0
+              }}>
+                Refinements & Constraints
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, marginTop: '2px' }}>
+                Select dietary patterns, regional inspirations, and cooking time bounds.
+              </p>
+            </div>
+          </div>
+
+          {/* Dietary Profile & Cuisine Inspiration 50/50 Full-Width Row */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))',
+            gap: '1.75rem',
+            width: '100%',
+            marginBottom: '1.75rem'
+          }}>
+            {/* Dietary Profile Refined Structure (Takes 50% full left width) */}
+            <div style={{
+              background: 'var(--surface-container)',
+              border: '1.5px solid var(--border-color)',
+              borderRadius: '1.25rem',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.03)',
+              width: '100%'
+            }}>
+              {/* Card Header with Icon & Custom Dropdown */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: '0.75rem',
+                    background: 'rgba(52, 211, 153, 0.15)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.25rem', flexShrink: 0
+                  }}>
+                    🥗
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>
+                      Dietary Profile
+                    </h4>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                      {ALL_DIETS.find(d => d.id === diet)?.label || 'Select restriction'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Refined Glassmorphic Selection Menu */}
+                <CustomDropdown
+                  options={ALL_DIETS}
+                  value={diet}
+                  onChange={(newDiet) => setDiet(newDiet)}
+                  placeholder="More Diets..."
+                  minWidth="155px"
+                />
+              </div>
+
+              {/* Full-Width 4-Option Grid + Dynamic Selected Pill */}
+              <div style={{ width: '100%' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>
+                  Quick Selection:
+                </div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                  gap: '0.6rem',
+                  width: '100%'
+                }}>
+                  {ALL_DIETS.slice(0, 4).map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setDiet(d.id)}
+                      className={`stitch-pill-btn${diet === d.id ? ' active' : ''}`}
+                      style={{
+                        width: '100%',
+                        justifyContent: 'center',
+                        padding: '0.65rem 0.5rem',
+                        border: diet === d.id ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                      }}
+                    >
+                      <span className="pill-emoji">{d.emoji}</span>
+                      <span className="pill-label">{d.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* If selected diet is outside top 4, show prominent active badge */}
+                {diet && !ALL_DIETS.slice(0, 4).some(d => d.id === diet) && (
+                  <div style={{ marginTop: '0.6rem', width: '100%' }}>
+                    <button
+                      type="button"
+                      onClick={() => setDiet('NONE')}
+                      className="stitch-pill-btn active"
+                      style={{
+                        width: '100%',
+                        justifyContent: 'center',
+                        padding: '0.55rem 1rem',
+                        border: '1.5px solid var(--primary)',
+                      }}
+                      title="Click to reset to Any Diet"
+                    >
+                      <span className="pill-emoji">{ALL_DIETS.find(d => d.id === diet)?.emoji || '✨'}</span>
+                      <span className="pill-label">Selected: {ALL_DIETS.find(d => d.id === diet)?.label || diet}</span>
+                      <X size={14} style={{ flexShrink: 0, marginLeft: '0.35rem' }} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Cuisine Inspiration Refined Structure (Takes 50% full right width) */}
+            <div style={{
+              background: 'var(--surface-container)',
+              border: '1.5px solid var(--border-color)',
+              borderRadius: '1.25rem',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.03)',
+              width: '100%'
+            }}>
+              {/* Card Header with Icon & Custom Dropdown */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: '0.75rem',
+                    background: 'rgba(238, 108, 77, 0.15)',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.25rem',
+                    lineHeight: 1,
+                    flexShrink: 0
+                  }}>
+                    🌎
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--on-background)', margin: 0, lineHeight: 1.2 }}>
+                      Cuisine Inspiration
+                    </h4>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                      {POPULAR_CUISINES.find(c => c.id === cuisine)?.label || cuisine || 'All Cuisines'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Refined Glassmorphic Selection Menu */}
+                <CustomDropdown
+                  options={POPULAR_CUISINES}
+                  value={cuisine}
+                  onChange={(newCuisine) => setCuisine(newCuisine)}
+                  placeholder="All Cuisines..."
+                  minWidth="160px"
+                />
+              </div>
+
+              {/* Full-Width 4-Option Grid + Dynamic Selected Pill */}
+              <div style={{ width: '100%' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.65rem' }}>
+                  Quick Selection:
+                </div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                  gap: '0.6rem',
+                  width: '100%'
+                }}>
+                  {POPULAR_CUISINES.filter(c => c.id !== '').slice(0, 4).map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCuisine(c.id)}
+                      className={`stitch-pill-btn${cuisine === c.id ? ' active' : ''}`}
+                      style={{
+                        width: '100%',
+                        justifyContent: 'center',
+                        padding: '0.65rem 0.5rem',
+                        border: cuisine === c.id ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                      }}
+                    >
+                      <span className="pill-emoji">{c.emoji}</span>
+                      <span className="pill-label">{c.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* If selected cuisine is outside top 4, show prominent active badge */}
+                {cuisine && !POPULAR_CUISINES.filter(c => c.id !== '').slice(0, 4).some(c => c.id === cuisine) && (
+                  <div style={{ marginTop: '0.6rem', width: '100%' }}>
+                    <button
+                      type="button"
+                      onClick={() => setCuisine('')}
+                      className="stitch-pill-btn active"
+                      style={{
+                        width: '100%',
+                        justifyContent: 'center',
+                        padding: '0.55rem 1rem',
+                        border: '1.5px solid var(--primary)',
+                      }}
+                      title="Click to reset to All Cuisines"
+                    >
+                      <span className="pill-emoji">{POPULAR_CUISINES.find(c => c.id === cuisine)?.emoji || '🍽️'}</span>
+                      <span className="pill-label">Selected: {POPULAR_CUISINES.find(c => c.id === cuisine)?.label || cuisine}</span>
+                      <X size={14} style={{ flexShrink: 0, marginLeft: '0.35rem' }} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Max Prep Time Slider with Highly Visible Marker & Milestone Ticks */}
+          <div style={{
+            borderTop: '1.5px solid rgba(159, 64, 45, 0.18)',
+            paddingTop: '1.75rem',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+            gap: '2.25rem',
+            width: '100%'
+          }}>
+            <div>
+              <PrepTimeSlider
+                value={maxTime}
+                onChange={setMaxTime}
               />
+            </div>
+
+            {/* Exclude Allergens */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                Exclude Allergens
+              </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                  {allergies.map((allergy) => (
+                    <span
+                      key={allergy}
+                      className="chip chip-red"
+                      style={{
+                        padding: '0.3rem 0.75rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 600
+                      }}
+                    >
+                      <span style={{ textTransform: 'capitalize' }}>{allergy}</span>
+                      <button
+                        onClick={() => removeAllergy(allergy)}
+                        style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={allergyInput}
+                    onChange={(e) => setAllergyInput(e.target.value)}
+                    onKeyDown={addAllergy}
+                    placeholder="Add allergen and press Enter..."
+                    className="form-input"
+                    style={{
+                      padding: '0.65rem 1rem',
+                      fontSize: '0.9rem',
+                      borderRadius: '0.75rem'
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+        </section>
+
+        {/* Primary Generate Action CTA */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem' }} className="animate-fade-in-up delay-300">
+          <button
+            onClick={handleSuggest}
+            disabled={loading || ingredients.length === 0}
+            className="stitch-btn-generate"
+            style={{ width: 'auto' }}
+          >
+            {loading ? (
+              <>
+                <RefreshCw size={20} className="animate-spin" />
+                <span>Crafting Gourmet Dishes...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={20} />
+                <span>Generate 3 Gourmet Recipes</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Step 3: Curated Results */}
+        {recipes.length > 0 && (
+          <div id="curated-results" style={{ marginTop: '2.5rem' }} className="animate-fade-in-up delay-400">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <div className="step-badge-3">3</div>
+                <h3 style={{
+                  fontSize: '1.35rem',
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 700,
+                  color: 'var(--on-background)',
+                  margin: 0
+                }}>
+                  Curated Results
+                </h3>
+              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                Instant AI Recommendation
+              </span>
+            </div>
+
+            {/* 3-Column Glass Recipe Cards Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gap: '2rem'
+            }}>
+              {recipes.map((recipe, idx) => {
+                const imgUrl = getRecipeImage(recipe.title, recipe.cuisine);
+                const isFullMatch = !recipe.missingIngredients || recipe.missingIngredients.length === 0;
+                const matchBadge = isFullMatch ? '100% Match' : `${Math.max(60, 100 - (recipe.missingIngredients.length * 15))}% Match`;
+
+                return (
+                  <div
+                    key={idx}
+                    className="stitch-recipe-card animate-fade-in-scale"
+                    style={{ animationDelay: `${(idx + 3) * 100}ms` }}
+                  >
+                    {/* Hero Image Container */}
+                    <div className="stitch-card-banner">
+                      <img
+                        src={imgUrl}
+                        alt={recipe.title}
+                        onError={(e) => handleImageError(e, recipe.cuisine)}
+                      />
+                      <div className="stitch-card-badge">
+                        <CheckCircle2 size={13} style={{ color: 'var(--primary)' }} />
+                        <span>{matchBadge}</span>
+                      </div>
+                    </div>
+
+                    {/* Card Body */}
+                    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                      <h4 style={{
+                        fontSize: '1.25rem',
+                        fontFamily: 'var(--font-display)',
+                        fontWeight: 700,
+                        color: 'var(--on-background)',
+                        marginBottom: '0.5rem',
+                        lineHeight: 1.3
+                      }}>
+                        {recipe.title}
+                      </h4>
+
+                      {/* Meta stats: prep time & calories */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
+                        {recipe.estimatedTimeMinutes && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <Clock size={15} style={{ color: 'var(--primary)' }} />
+                            <span>{recipe.estimatedTimeMinutes} mins</span>
+                          </span>
+                        )}
+                        {recipe.estimatedCalories && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <Flame size={15} style={{ color: 'var(--primary)' }} />
+                            <span>{recipe.estimatedCalories} kcal</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Card Action Buttons */}
+                      <div style={{ display: 'flex', gap: '0.75rem', marginTop: 'auto' }}>
+                        <button
+                          className="btn btn-secondary"
+                          style={{
+                            flex: 1,
+                            borderRadius: '0.75rem',
+                            fontWeight: 600,
+                            justifyContent: 'center',
+                            padding: '0.65rem 1rem'
+                          }}
+                          onClick={() => setSelectedRecipe(recipe)}
+                        >
+                          <ChefHat size={16} />
+                          <span>View</span>
+                        </button>
+
+                        <button
+                          className="btn btn-primary"
+                          style={{
+                            flex: 1,
+                            borderRadius: '0.75rem',
+                            background: 'var(--primary)',
+                            color: '#ffffff',
+                            fontWeight: 600,
+                            justifyContent: 'center',
+                            padding: '0.65rem 1rem',
+                            border: '1px solid rgba(159, 64, 45, 0.5)',
+                            boxShadow: '0 4px 12px rgba(159, 64, 45, 0.3)'
+                          }}
+                          onClick={() => setAssigningRecipe(recipe)}
+                        >
+                          <CalendarPlus size={16} />
+                          <span>Assign</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Recipe Detail Glass Modal */}
+      {selectedRecipe && (
+        <RecipeDetailModal
+          recipe={selectedRecipe}
+          onClose={() => setSelectedRecipe(null)}
+          onSave={() => handleSave(selectedRecipe)}
+          onAssign={() => {
+            const r = selectedRecipe;
+            setSelectedRecipe(null);
+            setAssigningRecipe(r);
+          }}
+        />
+      )}
+
+      {/* Assign to Meal Plan Glass Modal */}
+      {assigningRecipe && (
+        <AssignMealModal
+          recipe={assigningRecipe}
+          onClose={() => setAssigningRecipe(null)}
+          onSaved={() => handleSave(assigningRecipe)}
+        />
+      )}
+    </div>
+  );
+}
+
+function AssignMealModal({ recipe, onClose, onSaved }) {
+  const [day, setDay] = useState('MONDAY');
+  const [mealType, setMealType] = useState('DINNER');
+  const [saving, setSaving] = useState(false);
+
+  const days = [
+    { id: 'MONDAY', label: 'Mon' },
+    { id: 'TUESDAY', label: 'Tue' },
+    { id: 'WEDNESDAY', label: 'Wed' },
+    { id: 'THURSDAY', label: 'Thu' },
+    { id: 'FRIDAY', label: 'Fri' },
+    { id: 'SATURDAY', label: 'Sat' },
+    { id: 'SUNDAY', label: 'Sun' },
+  ];
+
+  const meals = ['BREAKFAST', 'LUNCH', 'DINNER'];
+
+  const getCurrentMonday = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    return monday.toISOString().split('T')[0];
+  };
+
+  const handleAssign = async () => {
+    setSaving(true);
+    try {
+      const savedRes = await saveRecipe(recipe);
+      const recipeId = savedRes.data?.id;
+      const weekStart = getCurrentMonday();
+      await assignRecipe(weekStart, day, mealType, recipeId);
+      toast.success(`Assigned to ${day.slice(0,3)} ${mealType.toLowerCase()}! 🗓️`);
+      if (onSaved) onSaved();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to assign meal');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return createPortal(
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal glass-panel" style={{ borderRadius: '1.25rem', padding: '2rem', maxWidth: '480px', width: '90%', border: '1.5px solid rgba(159, 64, 45, 0.25)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.35rem', color: 'var(--on-background)', fontWeight: 700 }}>
+            Schedule Recipe
+          </h3>
+          <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Close modal"><X size={18} /></button>
+        </div>
+
+        <p style={{ fontSize: '0.9rem', color: 'var(--on-surface-variant)', marginBottom: '1.25rem' }}>
+          Assign <strong>"{recipe.title}"</strong> to your weekly meal planner.
+        </p>
+
+        <div style={{ marginBottom: '1.25rem' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+            Select Day
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.35rem' }}>
+            {days.map(d => (
+              <button
+                key={d.id}
+                type="button"
+                className={`stitch-pill-btn${day === d.id ? ' active' : ''}`}
+                style={{ padding: '0.45rem 0.2rem', textAlign: 'center', fontSize: '0.8rem' }}
+                onClick={() => setDay(d.id)}
+              >
+                {d.label}
+              </button>
             ))}
           </div>
         </div>
-      )}
 
-      {/* Detail Modal */}
-      {selectedRecipe && (
-        <RecipeDetailModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} onSave={() => handleSave(selectedRecipe)} />
-      )}
-    </div>
-  );
-}
-
-function RecipeCard({ recipe, onSave, onView }) {
-  const cuisineEmojis = { Italian: '🍝', Mexican: '🌮', Indian: '🍛', Chinese: '🍜', Japanese: '🍣', Default: '🍽️' };
-  const emoji = cuisineEmojis[recipe.cuisine] || cuisineEmojis.Default;
-
-  return (
-    <div className="recipe-card">
-      <div className="recipe-card-image">
-        {emoji}
-        {recipe.cuisine && (
-          <span className="badge badge-accent" style={{ position: 'absolute', top: '0.75rem', right: '0.75rem' }}>
-            {recipe.cuisine}
-          </span>
-        )}
-      </div>
-      <div className="recipe-card-body">
-        <h3 className="recipe-card-title">{recipe.title}</h3>
-        <div className="recipe-card-meta">
-          {recipe.estimatedTimeMinutes && (
-            <span className="recipe-card-meta-item"><Clock size={13} /> {recipe.estimatedTimeMinutes} min</span>
-          )}
-          {recipe.estimatedCalories && (
-            <span className="recipe-card-meta-item"><Flame size={13} /> {recipe.estimatedCalories} kcal</span>
-          )}
+        <div style={{ marginBottom: '1.75rem' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+            Select Meal Slot
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+            {meals.map(m => (
+              <button
+                key={m}
+                type="button"
+                className={`stitch-pill-btn${mealType === m ? ' active' : ''}`}
+                style={{ textAlign: 'center', textTransform: 'capitalize' }}
+                onClick={() => setMealType(m)}
+              >
+                {m.toLowerCase()}
+              </button>
+            ))}
+          </div>
         </div>
-        {recipe.usedIngredients?.length > 0 && (
-          <p className="text-xs text-muted">
-            Uses: {recipe.usedIngredients.slice(0, 4).join(', ')}{recipe.usedIngredients.length > 4 ? '...' : ''}
-          </p>
-        )}
-        {recipe.missingIngredients?.length > 0 && (
-          <p className="text-xs" style={{ color: '#fb923c' }}>
-            Missing: {recipe.missingIngredients.map(m => m.name).slice(0, 3).join(', ')}
-          </p>
-        )}
-        <div className="recipe-card-actions">
-          <button className="btn btn-secondary btn-sm" onClick={onView} style={{ flex: 1 }}>
-            <ChefHat size={14} /> View
+
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            className="btn btn-primary"
+            style={{ flex: 1, background: 'var(--primary)', color: '#fff', borderRadius: '0.75rem', justifyContent: 'center' }}
+            onClick={handleAssign}
+            disabled={saving}
+          >
+            {saving ? 'Assigning...' : 'Confirm Schedule'}
           </button>
-          <button className="btn btn-primary btn-sm" onClick={onSave} style={{ flex: 1 }}>
-            <BookmarkPlus size={14} /> Save
+          <button className="btn btn-secondary" onClick={onClose} style={{ borderRadius: '0.75rem' }}>
+            Cancel
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function RecipeDetailModal({ recipe, onClose, onSave }) {
-  return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-          <div>
-            <h2 style={{ fontFamily: 'var(--font-display)', marginBottom: '0.5rem' }}>{recipe.title}</h2>
-            <div className="flex gap-3">
-              {recipe.cuisine && <span className="chip chip-accent">{recipe.cuisine}</span>}
-              {recipe.estimatedTimeMinutes && <span className="chip"><Clock size={12} /> {recipe.estimatedTimeMinutes} min</span>}
-              {recipe.estimatedCalories && <span className="chip"><Flame size={12} /> {recipe.estimatedCalories} kcal</span>}
-            </div>
-          </div>
-          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {recipe.usedIngredients?.length > 0 && (
-            <div>
-              <h4 style={{ marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>✅ Ingredients You Have</h4>
-              <div className="flex flex-wrap gap-2">
-                {recipe.usedIngredients.map(i => <span key={i} className="chip chip-green">{i}</span>)}
-              </div>
-            </div>
-          )}
-
-          {recipe.missingIngredients?.length > 0 && (
-            <div>
-              <h4 style={{ marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>🛒 Missing Ingredients</h4>
-              <div className="flex flex-wrap gap-2">
-                {recipe.missingIngredients.map(m => (
-                  <span key={m.name} className="chip chip-red">{m.quantity} {m.unit} {m.name}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <h4 style={{ marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>📋 Instructions</h4>
-            <ol style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {recipe.steps?.map((step, i) => (
-                <li key={i} style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>{step}</li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="flex gap-3" style={{ paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)' }}>
-            <button className="btn btn-primary" onClick={() => { onSave(); onClose(); }} style={{ flex: 1 }}>
-              <BookmarkPlus size={16} /> Save Recipe
-            </button>
-            <button className="btn btn-secondary" onClick={onClose}>Close</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </div>,
+    document.body
   );
 }

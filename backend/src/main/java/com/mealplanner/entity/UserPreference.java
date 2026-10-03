@@ -19,10 +19,12 @@ public class UserPreference {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "diet_type")
     private DietType dietType = DietType.NONE;
 
+    @Builder.Default
     @Column(name = "allergies")
     private String[] allergies = new String[]{};
 
@@ -33,6 +35,6 @@ public class UserPreference {
     private Integer maxCookTimeMinutes;
 
     public enum DietType {
-        NONE, VEGETARIAN, VEGAN, KETO, GLUTEN_FREE, DAIRY_FREE, LOW_CARB
+        NONE, VEGETARIAN, VEGAN, KETO, GLUTEN_FREE, DAIRY_FREE, LOW_CARB, HIGH_PROTEIN
     }
 }

@@ -3,6 +3,9 @@ import api from './axiosInstance';
 export const generateShoppingList = (mealPlanId) =>
   api.post(`/shopping-list/generate/${mealPlanId}`);
 
+export const getShoppingListByPlan = (mealPlanId) =>
+  api.get(`/shopping-list/plan/${mealPlanId}`);
+
 export const getShoppingList = (id) =>
   api.get(`/shopping-list/${id}`);
 
