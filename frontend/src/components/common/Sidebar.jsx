@@ -27,7 +27,11 @@ export default function Sidebar({ isOpen, onClose }) {
         aria-hidden="true"
       />
 
-      <aside className={`sidebar glass-panel ${isOpen ? 'open' : ''}`} aria-label="Main Navigation">
+      <aside
+        className={`sidebar ${isOpen ? 'open' : ''}`}
+        aria-label="Main Navigation"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="sidebar-header">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
@@ -42,7 +46,10 @@ export default function Sidebar({ isOpen, onClose }) {
             {onClose && (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
                 className="mobile-close-btn"
                 aria-label="Close navigation sidebar"
                 title="Close sidebar"
@@ -59,7 +66,10 @@ export default function Sidebar({ isOpen, onClose }) {
             <NavLink
               key={to}
               to={to}
-              onClick={() => onClose && onClose()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onClose) onClose();
+              }}
               className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
             >
               <Icon size={19} className="nav-item-icon" />
@@ -84,7 +94,9 @@ export default function Sidebar({ isOpen, onClose }) {
         {/* Bottom CTA */}
         <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
           <button
-            onClick={() => {
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
               navigate('/suggest');
               if (onClose) onClose();
             }}
