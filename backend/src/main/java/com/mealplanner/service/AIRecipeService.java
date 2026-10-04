@@ -3,6 +3,7 @@ package com.mealplanner.service;
 import com.mealplanner.ai.LLMClient;
 import com.mealplanner.ai.PromptBuilder;
 import com.mealplanner.ai.RecipeResponseParser;
+import com.mealplanner.config.RecipeCacheKeyGenerator;
 import com.mealplanner.dto.AiRecipeDTO;
 import com.mealplanner.dto.RecipeSuggestionRequest;
 import com.mealplanner.dto.RecipeSuggestionResponse;
@@ -14,14 +15,15 @@ import com.mealplanner.repository.AiUsageLogRepository;
 import com.mealplanner.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -33,11 +35,8 @@ public class AIRecipeService {
     private final RecipeResponseParser responseParser;
     private final AiUsageLogRepository aiUsageLogRepository;
     private final UserRepository userRepository;
-
-    // Self-injection via @Lazy so that calls to cachedSuggest() go through
-    // the Spring proxy and @Cacheable is intercepted correctly.
-    @Autowired @Lazy
-    private AIRecipeService self;
+    private final CacheManager cacheManager;
+    private final RecipeCacheKeyGenerator recipeCacheKeyGenerator;
 
     @Value("${ai.rate-limit.calls-per-day:20}")
     private int maxCallsPerDay;
@@ -47,54 +46,70 @@ public class AIRecipeService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // Validate & sanitize ingredients first (before cache check)
         validateRequest(request);
 
-        // Try cache — hits don't count against the rate limit
-        // Must call through `self` (the Spring proxy) for @Cacheable to intercept
-        int todayCount = getTodayCallCount(user.getId());
-        List<AiRecipeDTO> recipes = self.cachedSuggest(request);
-        boolean wasCacheHit = isCacheHit(user.getId(), todayCount);
-
-        if (!wasCacheHit) {
-            // Only enforce rate limit and increment counter on real LLM calls
-            if (todayCount >= maxCallsPerDay) {
-                throw new RateLimitExceededException(
-                    "Daily AI call limit of " + maxCallsPerDay + " reached. Try again tomorrow.");
-            }
-            aiUsageLogRepository.incrementCallCount(user.getId(), LocalDate.now());
-        } else {
-            log.info("Cache hit for user {} — skipping rate limit increment", email);
+        // Clear previous days' entries so they don't linger
+        try {
+            aiUsageLogRepository.deleteOldUsageLogs(LocalDate.now());
+        } catch (Exception e) {
+            log.warn("Failed to clean up old AI usage logs: {}", e.getMessage());
         }
 
-        int remaining = wasCacheHit ? (maxCallsPerDay - todayCount) : (maxCallsPerDay - todayCount - 1);
+        int todayCount = getTodayCallCount(user.getId());
+
+        // Check Cache
+        Object cacheKey = recipeCacheKeyGenerator.generate(this, null, request);
+        Cache cache = cacheManager.getCache("recipesuggestions");
+        Cache.ValueWrapper wrapper = (cache != null) ? cache.get(cacheKey) : null;
+
+        List<AiRecipeDTO> recipes;
+        boolean wasCacheHit = false;
+
+        if (wrapper != null && wrapper.get() instanceof List) {
+            recipes = (List<AiRecipeDTO>) wrapper.get();
+            wasCacheHit = true;
+            log.info("Cache hit for user {} — skipping rate limit increment", email);
+        } else {
+            if (todayCount >= maxCallsPerDay) {
+                throw new RateLimitExceededException(
+                        "Daily AI call limit of " + maxCallsPerDay + " reached. Resets at start of new day.");
+            }
+            log.info("Cache miss — calling LLM for request: ingredients={}", request.getIngredients());
+            String prompt = promptBuilder.buildRecipeSuggestionPrompt(request);
+            recipes = callWithRetry(prompt);
+            if (cache != null) {
+                cache.put(cacheKey, recipes);
+            }
+            aiUsageLogRepository.incrementCallCount(user.getId(), LocalDate.now());
+            todayCount++;
+        }
+
+        int remaining = Math.max(0, maxCallsPerDay - todayCount);
         return RecipeSuggestionResponse.builder()
                 .recipes(recipes)
                 .fromCache(wasCacheHit)
-                .remainingCallsToday(Math.max(0, remaining))
+                .remainingCallsToday(remaining)
                 .build();
     }
 
-    /**
-     * The actual LLM call, wrapped in @Cacheable.
-     * Cache key is built by RecipeCacheKeyGenerator — order-independent, normalised.
-     * Cache name must match the one registered in CacheConfig.
-     */
-    @Cacheable(cacheNames = "recipesuggestions", keyGenerator = "recipeCacheKeyGenerator")
-    public List<AiRecipeDTO> cachedSuggest(RecipeSuggestionRequest request) {
-        log.info("Cache miss — calling LLM for request: ingredients={}", request.getIngredients());
-        String prompt = promptBuilder.buildRecipeSuggestionPrompt(request);
-        return callWithRetry(prompt);
-    }
+    public Map<String, Object> getAiCredits(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-    /**
-     * Detects a cache hit by checking if the usage counter changed.
-     * If todayCount is the same after cachedSuggest(), the result came from cache.
-     */
-    private boolean isCacheHit(Long userId, int countBeforeCall) {
-        // We compare counts before and after; a real call will have been logged by now
-        // This is a lightweight heuristic — accurate because cachedSuggest is @Cacheable
-        return getTodayCallCount(userId) == countBeforeCall;
+        try {
+            aiUsageLogRepository.deleteOldUsageLogs(LocalDate.now());
+        } catch (Exception e) {
+            log.warn("Failed to clean up old AI usage logs: {}", e.getMessage());
+        }
+
+        int todayCount = getTodayCallCount(user.getId());
+        int remaining = Math.max(0, maxCallsPerDay - todayCount);
+
+        return Map.of(
+                "remainingCallsToday", remaining,
+                "maxCallsPerDay", maxCallsPerDay,
+                "usedCallsToday", todayCount
+        );
     }
 
     private List<AiRecipeDTO> callWithRetry(String prompt) {

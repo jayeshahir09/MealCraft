@@ -29,6 +29,12 @@ public class RecipeController {
         return ResponseEntity.ok(aiRecipeService.suggestRecipes(userDetails.getUsername(), request));
     }
 
+    @GetMapping("/ai-credits")
+    public ResponseEntity<java.util.Map<String, Object>> getAiCredits(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(aiRecipeService.getAiCredits(userDetails.getUsername()));
+    }
+
     @GetMapping
     public ResponseEntity<List<RecipeDTO>> getSavedRecipes(
             @AuthenticationPrincipal UserDetails userDetails,

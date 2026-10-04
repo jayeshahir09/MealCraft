@@ -9,6 +9,9 @@ export const getSavedRecipes = (params) =>
 export const getRecipe = (id) =>
   api.get(`/recipes/${id}`);
 
+export const getAiCredits = () =>
+  api.get('/recipes/ai-credits');
+
 export const saveRecipe = (recipe) =>
   api.post('/recipes', recipe);
 

@@ -23,4 +23,9 @@ public interface AiUsageLogRepository extends JpaRepository<AiUsageLog, Long> {
         ON CONFLICT (user_id, usage_date) DO UPDATE SET call_count = ai_usage_log.call_count + 1
         """, nativeQuery = true)
     void incrementCallCount(@Param("userId") Long userId, @Param("date") LocalDate date);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM AiUsageLog a WHERE a.usageDate < :today")
+    void deleteOldUsageLogs(@Param("today") LocalDate today);
 }
