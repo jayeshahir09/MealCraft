@@ -1577,38 +1577,6 @@ body.modal-open {
   color: var(--primary);
 }
 
-.recipe-modal-hero {
-  position: relative;
-  width: 100%;
-  height: 230px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.recipe-modal-hero-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.recipe-modal-hero-gradient {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(10, 15, 29, 0.7) 60%, rgba(10, 15, 29, 0.98) 100%);
-}
-
-[data-theme="light"] .recipe-modal-hero-gradient,
-.light .recipe-modal-hero-gradient {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(251, 249, 249, 0.75) 60%, rgba(251, 249, 249, 0.98) 100%);
-}
-
-.recipe-modal-hero-content {
-  position: absolute;
-  bottom: 1.25rem;
-  left: 1.5rem;
-  right: 1.5rem;
-  z-index: 5;
-}
 
 .recipe-modal-badges {
   display: flex;
@@ -2767,24 +2735,6 @@ body.modal-open {
   border-color: rgba(159, 64, 45, 0.45);
 }
 
-.stitch-card-banner {
-  height: 200px;
-  width: 100%;
-  position: relative;
-  overflow: hidden;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
-}
-
-.stitch-card-banner img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
-}
-
-.stitch-recipe-card:hover .stitch-card-banner img {
-  transform: scale(1.06);
-}
 
 .stitch-card-badge {
   position: absolute;

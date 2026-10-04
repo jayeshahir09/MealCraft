@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getSavedRecipes, deleteRecipe } from '../api/recipeApi';
 import toast from 'react-hot-toast';
-import { Search, Trash2, Clock, Flame, ChefHat, X, Utensils, Check } from 'lucide-react';
-import { getRecipeImage, handleImageError } from '../utils/foodImages';
+import { Search, Trash2, Clock, Flame, ChefHat, X, Utensils, Check, Globe } from 'lucide-react';
 import RecipeDetailModal from '../components/common/RecipeDetailModal';
 import CustomDropdown from '../components/common/CustomDropdown';
 import { POPULAR_CUISINES } from '../utils/cuisines';
@@ -206,25 +205,39 @@ export default function SavedRecipesPage() {
             gap: '1.75rem'
           }}>
             {recipes.map((recipe, idx) => {
-              const imgUrl = getRecipeImage(recipe.title, recipe.cuisine);
-
               return (
                 <div
                   key={recipe.id}
                   className="stitch-recipe-card animate-fade-in-scale"
                   style={{ animationDelay: `${idx * 60}ms` }}
                 >
-                  <div className="stitch-card-banner">
-                    <img
-                      src={imgUrl}
-                      alt={recipe.title}
-                      onError={(e) => handleImageError(e, recipe.cuisine)}
-                    />
-                    {recipe.cuisine && (
-                      <span className="stitch-card-badge">
-                        {recipe.cuisine}
+                  <div style={{
+                    padding: '1.25rem 1.5rem 0.25rem',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    {recipe.cuisine ? (
+                      <span className="recipe-badge-cuisine" style={{ fontSize: '0.8rem' }}>
+                        <Globe size={13} /> {recipe.cuisine}
+                      </span>
+                    ) : (
+                      <span className="recipe-badge-cuisine" style={{ fontSize: '0.8rem' }}>
+                        <ChefHat size={13} /> Gourmet
                       </span>
                     )}
+                    <div style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: '0.65rem',
+                      background: 'rgba(159, 64, 45, 0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--primary)'
+                    }}>
+                      <ChefHat size={17} />
+                    </div>
                   </div>
 
                   <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', flex: 1 }}>

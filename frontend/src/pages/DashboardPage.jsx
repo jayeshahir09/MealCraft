@@ -5,7 +5,6 @@ import { getSavedRecipes } from '../api/recipeApi';
 import { getMealPlan } from '../api/mealPlanApi';
 import { getPantry } from '../api/pantryApi';
 import { getAnalytics, generateShoppingList } from '../api/shoppingListApi';
-import { getRecipeImage, handleImageError } from '../utils/foodImages';
 import RecipeDetailModal from '../components/common/RecipeDetailModal';
 import toast from 'react-hot-toast';
 import {
@@ -14,20 +13,11 @@ import {
   Clock,
   ArrowRight,
   Plus,
-  SlidersHorizontal,
   Calendar,
-  AlertTriangle,
-  Leaf,
   Utensils,
   ChevronRight,
   ChefHat,
-  BookmarkPlus,
-  ShoppingCart,
   CheckCircle2,
-  CalendarDays,
-  Check,
-  Zap,
-  BookOpen,
   RefreshCw
 } from 'lucide-react';
 
@@ -435,81 +425,66 @@ export default function DashboardPage() {
               const slotEmoji = slot === 'BREAKFAST' ? '🥞' : slot === 'LUNCH' ? '🥗' : '🍲';
 
               if (recipe) {
-                const imgUrl = getRecipeImage(recipe.title, recipe.cuisine);
                 return (
                   <article
                     key={slot}
                     className="glass-panel"
                     style={{
                       display: 'flex',
-                      padding: 0,
-                      overflow: 'hidden',
+                      flexDirection: 'column',
+                      padding: '1.25rem 1.5rem',
                       borderRadius: '1.15rem',
                       border: '1.5px solid rgba(159, 64, 45, 0.22)',
                       boxShadow: '0 4px 14px rgba(0, 0, 0, 0.04)',
                       transition: 'all 0.25s ease'
                     }}
                   >
-                    <div
-                      style={{
-                        width: '30%',
-                        minHeight: '135px',
-                        backgroundImage: `url('${imgUrl}')`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        position: 'relative',
-                        cursor: 'pointer'
-                      }}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary)' }}>
+                        {slotEmoji} {slot} • {slotTimeLabel}
+                      </span>
+                      <span className="stitch-card-badge" style={{ position: 'static', padding: '2px 8px', fontSize: '0.72rem' }}>
+                        Planned
+                      </span>
+                    </div>
+
+                    <h3
                       onClick={() => setSelectedRecipe(recipe)}
-                    />
-                    <div style={{ width: '70%', padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary)' }}>
-                          {slotEmoji} {slot} • {slotTimeLabel}
-                        </span>
-                        <span className="stitch-card-badge" style={{ position: 'static', padding: '2px 8px', fontSize: '0.72rem' }}>
-                          Planned
-                        </span>
-                      </div>
+                      style={{ fontSize: '1.2rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', marginBottom: '0.65rem', cursor: 'pointer', lineHeight: 1.25 }}
+                    >
+                      {recipe.title}
+                    </h3>
 
-                      <h3
+                    <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {recipe.estimatedTimeMinutes && (
+                        <span className="quick-add-pill" style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
+                          <Clock size={12} style={{ color: 'var(--primary)' }} /> {recipe.estimatedTimeMinutes} min
+                        </span>
+                      )}
+                      {recipe.estimatedCalories && (
+                        <span className="quick-add-pill" style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
+                          <Flame size={12} style={{ color: 'var(--primary)' }} /> {recipe.estimatedCalories} kcal
+                        </span>
+                      )}
+                      {recipe.cuisine && (
+                        <span className="quick-add-pill" style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
+                          {recipe.cuisine}
+                        </span>
+                      )}
+
+                      <button
                         onClick={() => setSelectedRecipe(recipe)}
-                        style={{ fontSize: '1.2rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', marginBottom: '0.65rem', cursor: 'pointer', lineHeight: 1.25 }}
+                        className="btn btn-primary btn-sm"
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '0.35rem 0.85rem',
+                          borderRadius: '0.6rem',
+                          marginLeft: 'auto',
+                          gap: '0.3rem'
+                        }}
                       >
-                        {recipe.title}
-                      </h3>
-
-                      <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                        {recipe.estimatedTimeMinutes && (
-                          <span className="quick-add-pill" style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
-                            <Clock size={12} style={{ color: 'var(--primary)' }} /> {recipe.estimatedTimeMinutes} min
-                          </span>
-                        )}
-                        {recipe.estimatedCalories && (
-                          <span className="quick-add-pill" style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
-                            <Flame size={12} style={{ color: 'var(--primary)' }} /> {recipe.estimatedCalories} kcal
-                          </span>
-                        )}
-                        {recipe.cuisine && (
-                          <span className="quick-add-pill" style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
-                            {recipe.cuisine}
-                          </span>
-                        )}
-
-                        <button
-                          onClick={() => setSelectedRecipe(recipe)}
-                          className="btn btn-primary btn-sm"
-                          style={{
-                            fontSize: '0.78rem',
-                            padding: '0.35rem 0.85rem',
-                            borderRadius: '0.6rem',
-                            marginLeft: 'auto',
-                            gap: '0.3rem'
-                          }}
-                        >
-                          <ChefHat size={13} /> <span>View Preparation Steps</span>
-                        </button>
-                      </div>
+                        <ChefHat size={13} /> <span>View Preparation Steps</span>
+                      </button>
                     </div>
                   </article>
                 );
@@ -808,25 +783,22 @@ export default function DashboardPage() {
               gap: '1.25rem'
             }}>
               {savedRecipes.slice(0, 3).map((recipe) => {
-                const imgUrl = getRecipeImage(recipe.title, recipe.cuisine);
-
                 return (
                   <div
                     key={recipe.id}
                     className="stitch-recipe-card animate-fade-in-scale"
                     style={{ borderRadius: '1.15rem' }}
                   >
-                    <div className="stitch-card-banner" style={{ height: '140px' }}>
-                      <img
-                        src={imgUrl}
-                        alt={recipe.title}
-                        onError={(e) => handleImageError(e, recipe.cuisine)}
-                      />
-                      {recipe.cuisine && (
-                        <span className="stitch-card-badge" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                          {recipe.cuisine}
-                        </span>
-                      )}
+                    <div style={{
+                      padding: '1rem 1.15rem 0.25rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span className="stitch-card-badge" style={{ position: 'static', fontSize: '0.72rem', padding: '2px 8px' }}>
+                        {recipe.cuisine || 'Gourmet'}
+                      </span>
+                      <ChefHat size={15} style={{ color: 'var(--primary)' }} />
                     </div>
 
                     <div style={{ padding: '1.15rem', display: 'flex', flexDirection: 'column', flex: 1 }}>
