@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { suggestRecipes, saveRecipe, getSavedRecipes } from '../api/recipeApi';
+import { suggestRecipes, saveRecipe, getSavedRecipes, getAiCredits } from '../api/recipeApi';
 import { getPantry } from '../api/pantryApi';
 import { getPreferences } from '../api/shoppingListApi';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { getRecipeImage, handleImageError } from '../utils/foodImages';
 import RecipeDetailModal from '../components/common/RecipeDetailModal';
 import PrepTimeSlider from '../components/common/PrepTimeSlider';
 import CustomDropdown from '../components/common/CustomDropdown';
 import { POPULAR_CUISINES, ALL_DIETS } from '../utils/cuisines';
+import IngredientAutocomplete from '../components/common/IngredientAutocomplete';
+import { findMasterIngredient, normalizeIngredientName } from '../utils/ingredients';
 import {
   Sparkles, Clock, Flame, ChefHat, BookmarkPlus, RefreshCw,
-  X, Plus, Zap, Utensils, CheckCircle2, PlusCircle, Check, Globe, Salad, Bookmark
+  X, Plus, Zap, Utensils, CheckCircle2, Check, Globe, Bookmark
 } from 'lucide-react';
 
 export default function RecipeSuggestionsPage() {
@@ -63,6 +64,14 @@ export default function RecipeSuggestionsPage() {
         }
       })
       .catch(() => {});
+
+    getAiCredits()
+      .then(res => {
+        if (res.data?.remainingCallsToday !== undefined) {
+          setRemaining(res.data.remainingCallsToday);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Parse URL search params from Quick AI Shortcuts or Pantry actions
@@ -92,37 +101,26 @@ export default function RecipeSuggestionsPage() {
     }
   }, [searchParams]);
 
-  const addIngredient = (e) => {
-    if ((e.key === 'Enter' || e.key === ',') && inputVal.trim()) {
-      e.preventDefault();
-      const val = inputVal.trim().toLowerCase();
-      if (!ingredients.includes(val)) {
-        setIngredients(prev => [...prev, val]);
-      }
-      setInputVal('');
+  const handleAddCanonicalIngredient = (itemOrName) => {
+    const rawName = typeof itemOrName === 'string' ? itemOrName : itemOrName.name;
+    if (!rawName || !rawName.trim()) return;
+    const canonical = normalizeIngredientName(rawName);
+    if (!ingredients.some(i => i.toLowerCase() === canonical.toLowerCase())) {
+      setIngredients(prev => [...prev, canonical]);
     }
-  };
-
-  const handleAddIngredientBtn = () => {
-    if (inputVal.trim()) {
-      const val = inputVal.trim().toLowerCase();
-      if (!ingredients.includes(val)) {
-        setIngredients(prev => [...prev, val]);
-      }
-      setInputVal('');
-    }
+    setInputVal('');
   };
 
   const removeIngredient = (ing) => {
-    setIngredients(prev => prev.filter(i => i !== ing));
+    setIngredients(prev => prev.filter(i => i.toLowerCase() !== ing.toLowerCase()));
   };
 
   const togglePantryIngredient = (item) => {
-    const val = item.toLowerCase();
-    if (ingredients.includes(val)) {
-      setIngredients(prev => prev.filter(i => i !== val));
+    const canonical = normalizeIngredientName(item);
+    if (ingredients.some(i => i.toLowerCase() === canonical.toLowerCase())) {
+      setIngredients(prev => prev.filter(i => i.toLowerCase() !== canonical.toLowerCase()));
     } else {
-      setIngredients(prev => [...prev, val]);
+      setIngredients(prev => [...prev, canonical]);
     }
   };
 
@@ -284,43 +282,36 @@ export default function RecipeSuggestionsPage() {
             </h3>
           </div>
 
-          {/* Input Field with Inline Add Button */}
-          <div style={{ position: 'relative', marginBottom: '1.75rem' }}>
-            <input
-              type="text"
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              onKeyDown={addIngredient}
-              placeholder="Type ingredient and press Enter (e.g. Salmon, Spinach, Garlic)..."
-              className="form-input"
-              style={{
-                padding: '1rem 3.5rem 1rem 1.25rem',
-                fontSize: '1rem',
-                borderRadius: '0.875rem'
-              }}
-            />
-            <button
-              onClick={handleAddIngredientBtn}
-              type="button"
-              style={{
-                position: 'absolute',
-                right: '0.85rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--primary)',
-                cursor: 'pointer',
-                padding: '0.25rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'transform 0.2s ease'
-              }}
-              title="Add Ingredient"
-            >
-              <PlusCircle size={24} />
-            </button>
+          {/* Input Field with Master Ingredient Autocomplete & Quick Staples */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <IngredientAutocomplete
+                  value={inputVal}
+                  onChange={setInputVal}
+                  onSelect={(item) => handleAddCanonicalIngredient(item)}
+                  placeholder="Search ingredient (e.g. Salmon, Garlic, Spinach)..."
+                  showStaples={true}
+                  onStapleClick={(staple) => handleAddCanonicalIngredient(staple)}
+                />
+              </div>
+              <button
+                onClick={() => handleAddCanonicalIngredient(inputVal)}
+                type="button"
+                className="btn btn-primary"
+                style={{
+                  height: '42px',
+                  padding: '0 1.25rem',
+                  borderRadius: '0.75rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
+                }}
+                title="Add Ingredient"
+              >
+                <Plus size={16} /> <span>Add</span>
+              </button>
+            </div>
           </div>
 
           {/* Active Canvas Tags Container with Visible Border */}
@@ -343,21 +334,25 @@ export default function RecipeSuggestionsPage() {
               Active Canvas ({ingredients.length} item{ingredients.length !== 1 ? 's' : ''})
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
-              {ingredients.map((ing) => (
-                <span key={ing} className="active-tag">
-                  <span style={{ textTransform: 'capitalize' }}>{ing}</span>
-                  <button
-                    onClick={() => removeIngredient(ing)}
-                    className="stitch-tag-remove"
-                    aria-label={`Remove ${ing}`}
-                  >
-                    <X size={14} />
-                  </button>
-                </span>
-              ))}
+              {ingredients.map((ing) => {
+                const master = findMasterIngredient(ing);
+                return (
+                  <span key={ing} className="active-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.85rem' }}>
+                    <span style={{ fontSize: '1rem' }}>{master?.emoji || '🥕'}</span>
+                    <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{ing}</span>
+                    <button
+                      onClick={() => removeIngredient(ing)}
+                      className="stitch-tag-remove"
+                      aria-label={`Remove ${ing}`}
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                );
+              })}
               {ingredients.length === 0 && (
                 <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  No ingredients added yet. Type an ingredient above or tap quick-add items below.
+                  No ingredients added yet. Search an ingredient above or tap quick staples/pantry items below.
                 </span>
               )}
             </div>
@@ -759,7 +754,6 @@ export default function RecipeSuggestionsPage() {
               gap: '2rem'
             }}>
               {recipes.map((recipe, idx) => {
-                const imgUrl = getRecipeImage(recipe.title, recipe.cuisine);
                 const isFullMatch = !recipe.missingIngredients || recipe.missingIngredients.length === 0;
                 const matchBadge = isFullMatch ? '100% Match' : `${Math.max(60, 100 - (recipe.missingIngredients.length * 15))}% Match`;
 
@@ -769,17 +763,22 @@ export default function RecipeSuggestionsPage() {
                     className="stitch-recipe-card animate-fade-in-scale"
                     style={{ animationDelay: `${(idx + 3) * 100}ms` }}
                   >
-                    {/* Hero Image Container */}
-                    <div className="stitch-card-banner">
-                      <img
-                        src={imgUrl}
-                        alt={recipe.title}
-                        onError={(e) => handleImageError(e, recipe.cuisine)}
-                      />
-                      <div className="stitch-card-badge">
+                    {/* Header Badge Row */}
+                    <div style={{
+                      padding: '1.25rem 1.5rem 0.25rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div className="stitch-card-badge" style={{ position: 'static' }}>
                         <CheckCircle2 size={13} style={{ color: 'var(--primary)' }} />
                         <span>{matchBadge}</span>
                       </div>
+                      {recipe.cuisine && (
+                        <span className="recipe-badge-cuisine" style={{ fontSize: '0.8rem' }}>
+                          <Globe size={13} /> {recipe.cuisine}
+                        </span>
+                      )}
                     </div>
 
                     {/* Card Body */}

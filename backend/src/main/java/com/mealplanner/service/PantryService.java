@@ -28,12 +28,18 @@ public class PantryService {
     @Transactional
     public PantryItemDTO addPantryItem(String email, PantryItemDTO dto) {
         User user = getUser(email);
-        PantryItem item = PantryItem.builder()
-                .user(user)
-                .ingredientName(dto.getIngredientName().trim().toLowerCase())
-                .quantity(dto.getQuantity())
-                .unit(dto.getUnit())
-                .build();
+        String normalizedName = com.mealplanner.util.UnitConverter.normalizeIngredientName(dto.getIngredientName());
+        
+        // Find existing item by normalized name to update instead of creating duplicate
+        PantryItem item = pantryRepository.findByUserId(user.getId()).stream()
+                .filter(p -> com.mealplanner.util.UnitConverter.normalizeIngredientName(p.getIngredientName()).equalsIgnoreCase(normalizedName))
+                .findFirst()
+                .orElseGet(() -> PantryItem.builder().user(user).ingredientName(normalizedName).build());
+
+        item.setIngredientName(normalizedName);
+        item.setQuantity(dto.getQuantity() != null ? dto.getQuantity().trim() : null);
+        item.setUnit(dto.getUnit() != null ? dto.getUnit().trim() : null);
+
         return toDTO(pantryRepository.save(item));
     }
 

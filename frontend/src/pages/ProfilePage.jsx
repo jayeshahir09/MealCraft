@@ -3,29 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { getPreferences, updatePreferences } from '../api/shoppingListApi';
 import { getPantry, addPantryItem, deletePantryItem } from '../api/pantryApi';
 import toast from 'react-hot-toast';
-import { User, Plus, Trash2, X, Save, LogOut, Clock, Globe } from 'lucide-react';
+import { User, Plus, X, Save, LogOut } from 'lucide-react';
 import PrepTimeSlider from '../components/common/PrepTimeSlider';
 import CustomDropdown from '../components/common/CustomDropdown';
+import IngredientAutocomplete from '../components/common/IngredientAutocomplete';
 import { POPULAR_CUISINES, ALL_DIETS } from '../utils/cuisines';
-
-const PANTRY_UNITS = [
-  { val: '', label: 'Unit (optional)', emoji: '📏' },
-  { val: 'g', label: 'g (grams)', emoji: '⚖️' },
-  { val: 'kg', label: 'kg (kilograms)', emoji: '⚖️' },
-  { val: 'ml', label: 'ml (milliliters)', emoji: '🧪' },
-  { val: 'L', label: 'L (liters)', emoji: '🧃' },
-  { val: 'pcs', label: 'pcs (pieces)', emoji: '🔢' },
-  { val: 'cups', label: 'cups', emoji: '☕' },
-  { val: 'tbsp', label: 'tbsp (tablespoon)', emoji: '🥄' },
-  { val: 'tsp', label: 'tsp (teaspoon)', emoji: '🥄' },
-  { val: 'cloves', label: 'cloves', emoji: '🧄' },
-  { val: 'cans', label: 'cans', emoji: '🥫' },
-  { val: 'slices', label: 'slices', emoji: '🍞' },
-  { val: 'bunches', label: 'bunches', emoji: '🌿' },
-  { val: 'oz', label: 'oz (ounces)', emoji: '⚖️' },
-  { val: 'lbs', label: 'lbs (pounds)', emoji: '⚖️' },
-  { val: 'pinch', label: 'pinch', emoji: '🤏' }
-];
+import { getUnitsForIngredient, findMasterIngredient, normalizeIngredientName } from '../utils/ingredients';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
@@ -59,13 +42,34 @@ export default function ProfilePage() {
 
   const removeAllergy = (a) => setPrefs(p => ({ ...p, allergies: p.allergies.filter(x => x !== a) }));
 
-  const handleAddPantryItem = async () => {
-    if (!newItem.ingredientName.trim()) return toast.error('Enter ingredient name');
+  const handleSelectPantryIngredient = (item) => {
+    const name = typeof item === 'string' ? item : item.name;
+    const unitsInfo = getUnitsForIngredient(name);
+    setNewItem(p => ({
+      ...p,
+      ingredientName: name,
+      unit: unitsInfo.defaultUnit || p.unit || ''
+    }));
+  };
+
+  const handleAddPantryItem = async (overrideItem) => {
+    const itemToAdd = overrideItem || newItem;
+    if (!itemToAdd.ingredientName || !itemToAdd.ingredientName.trim()) {
+      return toast.error('Enter ingredient name');
+    }
+    const normalizedName = normalizeIngredientName(itemToAdd.ingredientName);
     try {
-      const res = await addPantryItem(newItem);
-      setPantryItems(p => [...p, res.data]);
+      const res = await addPantryItem({
+        ingredientName: normalizedName,
+        quantity: itemToAdd.quantity || '',
+        unit: itemToAdd.unit || ''
+      });
+      setPantryItems(p => {
+        const filtered = p.filter(i => i.ingredientName.toLowerCase() !== normalizedName.toLowerCase());
+        return [...filtered, res.data];
+      });
       setNewItem({ ingredientName: '', quantity: '', unit: '' });
-      toast.success('Added to pantry!');
+      toast.success(`Added ${normalizedName} to pantry!`);
     } catch { toast.error('Failed to add item'); }
   };
 
@@ -73,6 +77,7 @@ export default function ProfilePage() {
     try {
       await deletePantryItem(id);
       setPantryItems(p => p.filter(i => i.id !== id));
+      toast.success('Removed from pantry');
     } catch { toast.error('Failed to delete item'); }
   };
 
@@ -457,29 +462,27 @@ export default function ProfilePage() {
           🧺 My Pantry
         </h3>
         <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-          Staples here are auto-detected and excluded when building your shopping lists.
+          Standardized ingredients stored here are auto-subtracted with exact units when generating shopping lists.
         </p>
 
         {/* Add new item */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <input
-            id="pantry-name-input"
-            type="text"
-            placeholder="Ingredient name (e.g. Garlic)"
-            value={newItem.ingredientName}
-            onChange={e => setNewItem(p => ({ ...p, ingredientName: e.target.value }))}
-            className="form-input"
-            style={{
-              flex: '2 1 180px',
-              borderRadius: '0.75rem',
-              padding: '0.65rem 1rem',
-              fontSize: '0.9rem'
-            }}
-            onKeyDown={e => e.key === 'Enter' && handleAddPantryItem()}
-          />
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div style={{ flex: '2 1 240px' }}>
+            <IngredientAutocomplete
+              id="pantry-name-input"
+              value={newItem.ingredientName}
+              onChange={(val) => setNewItem(p => ({ ...p, ingredientName: val }))}
+              onSelect={handleSelectPantryIngredient}
+              placeholder="Search master ingredient (e.g. Garlic, Whole Milk)..."
+              showStaples={true}
+              onStapleClick={(staple) => {
+                handleSelectPantryIngredient(staple);
+              }}
+            />
+          </div>
           <input
             type="text"
-            placeholder="Qty"
+            placeholder="Qty (e.g. 500, 2)"
             value={newItem.quantity}
             onChange={e => setNewItem(p => ({ ...p, quantity: e.target.value }))}
             className="form-input"
@@ -487,24 +490,29 @@ export default function ProfilePage() {
               flex: '1 1 80px',
               borderRadius: '0.75rem',
               padding: '0.65rem 1rem',
-              fontSize: '0.9rem'
+              fontSize: '0.9rem',
+              height: '42px'
             }}
           />
           <div style={{ flex: '1 1 160px' }}>
             <CustomDropdown
-              options={PANTRY_UNITS}
+              options={getUnitsForIngredient(newItem.ingredientName).options}
               value={newItem.unit}
               onChange={(u) => setNewItem(p => ({ ...p, unit: u }))}
-              placeholder="Unit (optional)"
+              placeholder="Unit"
               minWidth="100%"
             />
           </div>
           <button
             className="btn btn-primary"
-            onClick={handleAddPantryItem}
+            onClick={() => handleAddPantryItem()}
             style={{
               padding: '0.65rem 1.25rem',
-              borderRadius: '0.75rem'
+              borderRadius: '0.75rem',
+              height: '42px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem'
             }}
           >
             <Plus size={16} /> <span>Add</span>
@@ -517,26 +525,40 @@ export default function ProfilePage() {
             <p style={{ color: 'var(--text-muted)' }}>Your pantry is currently empty. Add staple ingredients above!</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {pantryItems.map(item => (
-              <span
-                key={item.id}
-                className="active-tag"
-                style={{ fontSize: '0.85rem', padding: '0.35rem 0.85rem' }}
-              >
-                <span style={{ textTransform: 'capitalize' }}>
-                  {item.ingredientName}
-                  {item.quantity && ` (${item.quantity}${item.unit ? ' ' + item.unit : ''})`}
-                </span>
-                <button
-                  onClick={() => handleDeletePantryItem(item.id)}
-                  className="stitch-tag-remove"
-                  aria-label={`Remove ${item.ingredientName}`}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1rem' }}>
+            {pantryItems.map(item => {
+              const master = findMasterIngredient(item.ingredientName);
+              return (
+                <span
+                  key={item.id}
+                  className="active-tag"
+                  style={{
+                    fontSize: '0.85rem',
+                    padding: '0.4rem 0.85rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem'
+                  }}
                 >
-                  <X size={13} />
-                </button>
-              </span>
-            ))}
+                  <span style={{ fontSize: '1rem' }}>{master?.emoji || '🥕'}</span>
+                  <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>
+                    {item.ingredientName}
+                    {item.quantity && (
+                      <span style={{ fontWeight: 400, opacity: 0.85, marginLeft: '0.25rem' }}>
+                        ({item.quantity}{item.unit ? ' ' + item.unit : ''})
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => handleDeletePantryItem(item.id)}
+                    className="stitch-tag-remove"
+                    aria-label={`Remove ${item.ingredientName}`}
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              );
+            })}
           </div>
         )}
       </div>

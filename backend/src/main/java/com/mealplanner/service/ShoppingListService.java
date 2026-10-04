@@ -3,6 +3,7 @@ package com.mealplanner.service;
 import com.mealplanner.dto.ShoppingListDTO;
 import com.mealplanner.entity.*;
 import com.mealplanner.repository.*;
+import com.mealplanner.util.UnitConverter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,14 +29,14 @@ public class ShoppingListService {
         MealPlan plan = mealPlanRepository.findByIdAndUserId(mealPlanId, user.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Meal plan not found"));
 
-        // Step 1: Collect all missing ingredients from every recipe in the plan
+        // Step 1: Collect and aggregate ingredients from every recipe in the plan
         Map<String, IngredientAggregate> aggregated = new LinkedHashMap<>();
 
         for (MealPlanEntry entry : plan.getEntries()) {
             Recipe recipe = entry.getRecipe();
             if (recipe.getIngredients() != null) {
                 for (Recipe.IngredientItem ingredient : recipe.getIngredients()) {
-                    String key = normalize(ingredient.getName());
+                    String key = UnitConverter.normalizeIngredientName(ingredient.getName());
                     aggregated.merge(key, new IngredientAggregate(
                             ingredient.getName(), ingredient.getQuantity(), ingredient.getUnit()),
                             this::mergeIngredients);
@@ -43,13 +44,57 @@ public class ShoppingListService {
             }
         }
 
-        // Step 2: Subtract pantry items
-        Set<String> pantryNames = pantryRepository.findByUserId(user.getId())
-                .stream()
-                .map(p -> normalize(p.getIngredientName()))
-                .collect(Collectors.toSet());
+        // Step 2: Accurate Pantry Subtraction with Unit Conversion
+        List<PantryItem> pantryList = pantryRepository.findByUserId(user.getId());
+        for (PantryItem p : pantryList) {
+            String pKey = UnitConverter.normalizeIngredientName(p.getIngredientName());
+            if (aggregated.containsKey(pKey)) {
+                IngredientAggregate req = aggregated.get(pKey);
+                String pQtyStr = p.getQuantity();
+                String pUnit = p.getUnit();
 
-        aggregated.keySet().removeAll(pantryNames);
+                // If pantry item has no quantity specified, consider it available in stock
+                if (pQtyStr == null || pQtyStr.isBlank()) {
+                    aggregated.remove(pKey);
+                    continue;
+                }
+
+                double reqQty = UnitConverter.parseQuantity(req.quantity);
+                double pantryQty = UnitConverter.parseQuantity(pQtyStr);
+
+                UnitConverter.UnitCategory reqCat = UnitConverter.getCategory(req.unit);
+                UnitConverter.UnitCategory pCat = UnitConverter.getCategory(pUnit);
+
+                if (reqCat != UnitConverter.UnitCategory.UNKNOWN && reqCat == pCat) {
+                    double reqBase = UnitConverter.toBaseUnit(reqQty, req.unit);
+                    double pantryBase = UnitConverter.toBaseUnit(pantryQty, pUnit);
+
+                    if (pantryBase >= reqBase) {
+                        // Fully satisfied by pantry stock
+                        aggregated.remove(pKey);
+                    } else {
+                        // Partially satisfied: subtract and keep missing remainder
+                        double remainingBase = reqBase - pantryBase;
+                        double remQty = UnitConverter.fromBaseUnit(remainingBase, req.unit);
+                        aggregated.put(pKey, new IngredientAggregate(
+                                req.name, UnitConverter.formatQuantity(remQty), req.unit));
+                    }
+                } else if (req.unit == null || req.unit.isBlank() || pUnit == null || pUnit.isBlank()
+                        || req.unit.equalsIgnoreCase(pUnit)) {
+                    // Direct quantity comparison for discrete/same units
+                    if (pantryQty >= reqQty) {
+                        aggregated.remove(pKey);
+                    } else {
+                        double remQty = reqQty - pantryQty;
+                        aggregated.put(pKey, new IngredientAggregate(
+                                req.name, UnitConverter.formatQuantity(remQty), req.unit));
+                    }
+                } else {
+                    // Incompatible units fallback: fulfill from pantry
+                    aggregated.remove(pKey);
+                }
+            }
+        }
 
         // Step 3: Delete old shopping list for this plan if exists
         shoppingListRepository.findByMealPlanId(mealPlanId)
@@ -122,26 +167,23 @@ public class ShoppingListService {
         return toDTO(shoppingListRepository.save(list));
     }
 
-    private String normalize(String name) {
-        if (name == null) return "";
-        return name.trim().toLowerCase().replaceAll("\\s+", " ");
-    }
-
     private IngredientAggregate mergeIngredients(IngredientAggregate a, IngredientAggregate b) {
-        // Attempt numeric merge if units match
-        if (a.unit != null && a.unit.equalsIgnoreCase(b.unit != null ? b.unit : "")) {
-            try {
-                double qA = Double.parseDouble(a.quantity != null ? a.quantity.replaceAll("[^0-9.]", "") : "0");
-                double qB = Double.parseDouble(b.quantity != null ? b.quantity.replaceAll("[^0-9.]", "") : "0");
-                double total = qA + qB;
-                String formatted = total == Math.floor(total)
-                        ? String.valueOf((int) total)
-                        : String.format("%.1f", total);
-                return new IngredientAggregate(a.name, formatted, a.unit);
-            } catch (NumberFormatException e) {
-                // Fall through to combined format
-            }
+        UnitConverter.UnitCategory catA = UnitConverter.getCategory(a.unit);
+        UnitConverter.UnitCategory catB = UnitConverter.getCategory(b.unit);
+
+        if (catA != UnitConverter.UnitCategory.UNKNOWN && catA == catB) {
+            double qA = UnitConverter.toBaseUnit(UnitConverter.parseQuantity(a.quantity), a.unit);
+            double qB = UnitConverter.toBaseUnit(UnitConverter.parseQuantity(b.quantity), b.unit);
+            double totalBase = qA + qB;
+            String preferredUnit = (a.unit != null && !a.unit.isBlank()) ? a.unit : b.unit;
+            double totalTarget = UnitConverter.fromBaseUnit(totalBase, preferredUnit);
+            return new IngredientAggregate(a.name, UnitConverter.formatQuantity(totalTarget), preferredUnit);
+        } else if (a.unit != null && a.unit.equalsIgnoreCase(b.unit != null ? b.unit : "")) {
+            double qA = UnitConverter.parseQuantity(a.quantity);
+            double qB = UnitConverter.parseQuantity(b.quantity);
+            return new IngredientAggregate(a.name, UnitConverter.formatQuantity(qA + qB), a.unit);
         }
+
         // Can't merge numerically — combine as text
         String combinedQty = (a.quantity != null ? a.quantity : "") + " + " + (b.quantity != null ? b.quantity : "");
         return new IngredientAggregate(a.name, combinedQty, a.unit);
