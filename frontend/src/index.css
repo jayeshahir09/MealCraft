@@ -3256,3 +3256,31 @@ input[type=range]:not(.prep-time-slider)::-webkit-slider-thumb {
   line-height: 1.2;
   white-space: nowrap;
 }
+
+/* =============================================
+   Stat Cards & Micro-Interaction Enhancements
+   ============================================= */
+.stat-card {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease !important;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--primary) !important;
+}
+
+.shopping-item:hover {
+  border-color: var(--primary) !important;
+  transform: translateX(2px);
+}
+
+/* Focus rings for keyboard navigation accessibility */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--primary) !important;
+  outline-offset: 2px !important;
+}
+

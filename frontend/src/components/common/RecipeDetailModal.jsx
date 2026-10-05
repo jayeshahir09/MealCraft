@@ -5,6 +5,7 @@ import {
   BookmarkPlus, CalendarPlus, CheckCircle2,
   Sparkles, Globe, ShoppingBag, Share2
 } from 'lucide-react';
+import { findMasterIngredient } from '../../utils/ingredients';
 import toast from 'react-hot-toast';
 
 export default function RecipeDetailModal({
@@ -235,17 +236,38 @@ export default function RecipeDetailModal({
             {/* Standard Saved Ingredients List */}
             {ingredientsList.length > 0 && (
               <div className="recipe-ingredients-grid">
-                {ingredientsList.map((item, idx) => (
-                  <div key={idx} className="recipe-ingredient-row">
-                    <span className="ingredient-bullet" />
-                    <span className="ingredient-name">{item.name}</span>
-                    {(item.quantity || item.unit) && (
-                      <span className="ingredient-qty">
-                        {item.quantity} {item.unit}
+                {ingredientsList.map((item, idx) => {
+                  const master = findMasterIngredient(item.name);
+                  return (
+                    <div key={idx} className="recipe-ingredient-row" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <span style={{
+                        fontSize: '1.15rem',
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '0.45rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'var(--surface-container)'
+                      }}>
+                        {master?.emoji || '🥕'}
                       </span>
-                    )}
-                  </div>
-                ))}
+                      <span className="ingredient-name" style={{ flex: 1, fontWeight: 600 }}>{item.name}</span>
+                      {(item.quantity || item.unit) && (
+                        <span className="ingredient-qty" style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '1rem',
+                          background: 'var(--primary-light)',
+                          color: 'var(--primary)'
+                        }}>
+                          {item.quantity} {item.unit}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

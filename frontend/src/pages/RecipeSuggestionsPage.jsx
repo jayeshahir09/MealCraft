@@ -386,35 +386,40 @@ export default function RecipeSuggestionsPage() {
                     color: 'var(--text-muted)',
                     fontSize: '0.75rem',
                     cursor: 'pointer',
-                    fontWeight: 600
+                    fontWeight: 600,
+                    transition: 'color 0.15s ease'
                   }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                 >
                   Clear all
                 </button>
               )}
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem' }}>
               {ingredients.map((ing) => {
                 const master = findMasterIngredient(ing);
                 return (
-                  <span key={ing} className="active-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.4rem 0.85rem' }}>
-                    <span style={{ fontSize: '1.1rem' }}>{master?.emoji || '🥕'}</span>
+                  <span key={ing} className="active-tag animate-fade-in-scale" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.9rem', borderRadius: '2rem' }}>
+                    <span style={{ fontSize: '1.15rem' }}>{master?.emoji || '🥕'}</span>
                     <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{ing}</span>
                     <button
                       onClick={() => removeIngredient(ing)}
                       className="stitch-tag-remove"
                       aria-label={`Remove ${ing}`}
+                      title={`Remove ${ing}`}
                     >
-                      <X size={14} />
+                      <X size={13} />
                     </button>
                   </span>
                 );
               })}
               {ingredients.length === 0 && (
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.25rem 0' }}>
-                  No ingredients added yet. Type an ingredient above or tap quick staples below to add.
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                  <span>✨</span>
+                  <span>No ingredients added yet. Type an ingredient above or tap quick staples below to build your recipe.</span>
+                </div>
               )}
             </div>
           </div>

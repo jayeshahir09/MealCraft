@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { ShoppingCart, Check, Plus, Printer, RefreshCw } from 'lucide-react';
 
 import { getMonday, formatWeekStart, formatWeekStartUTC } from '../utils/dateUtils';
+import { findMasterIngredient } from '../utils/ingredients';
 
 export default function ShoppingListPage() {
   const [searchParams] = useSearchParams();
@@ -203,57 +204,87 @@ export default function ShoppingListPage() {
                 </p>
               </div>
             ) : (
-              shoppingList.items.map(item => (
-                <div
-                  key={item.id}
-                  className={`glass-panel shopping-item${item.isChecked ? ' checked' : ''}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.85rem',
-                    padding: '0.85rem 1.25rem',
-                    borderRadius: '0.875rem',
-                    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
+              shoppingList.items.map(item => {
+                const master = findMasterIngredient(item.ingredientName);
+                return (
                   <div
-                    className={`shopping-checkbox${item.isChecked ? ' checked' : ''}`}
-                    onClick={() => handleToggle(item.id)}
-                    id={`item-${item.id}`}
+                    key={item.id}
+                    className={`glass-panel shopping-item${item.isChecked ? ' checked' : ''}`}
                     style={{
-                      width: '20px',
-                      height: '20px',
-                      borderRadius: '6px',
-                      border: '1.5px solid var(--primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.9rem',
+                      padding: '0.85rem 1.25rem',
+                      borderRadius: '0.875rem',
+                      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      border: item.isChecked ? '1px dashed var(--border-color)' : '1px solid var(--border-color)',
+                      opacity: item.isChecked ? 0.65 : 1
+                    }}
+                  >
+                    <div
+                      className={`shopping-checkbox${item.isChecked ? ' checked' : ''}`}
+                      onClick={() => handleToggle(item.id)}
+                      id={`item-${item.id}`}
+                      style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '7px',
+                        border: '1.5px solid var(--primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        background: item.isChecked ? 'var(--primary)' : 'var(--surface-container)',
+                        flexShrink: 0,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {item.isChecked && <Check size={14} color="#ffffff" />}
+                    </div>
+
+                    <div style={{
+                      fontSize: '1.25rem',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '0.5rem',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      cursor: 'pointer',
-                      background: item.isChecked ? 'var(--primary)' : 'var(--surface-container)'
-                    }}
-                  >
-                    {item.isChecked && <Check size={13} color="#ffffff" />}
-                  </div>
-                  <span
-                    className="item-name"
-                    style={{
-                      flex: 1,
-                      color: item.isChecked ? 'var(--text-muted)' : 'var(--on-background)',
-                      fontSize: '0.95rem',
-                      fontWeight: 600,
-                      textDecoration: item.isChecked ? 'line-through' : 'none'
-                    }}
-                  >
-                    {item.ingredientName}
-                  </span>
-                  {(item.quantity || item.unit) && (
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                      {item.quantity} {item.unit}
+                      background: 'var(--surface-container)',
+                      flexShrink: 0
+                    }}>
+                      {master?.emoji || '🛒'}
+                    </div>
+
+                    <span
+                      className="item-name"
+                      style={{
+                        flex: 1,
+                        color: item.isChecked ? 'var(--text-muted)' : 'var(--on-background)',
+                        fontSize: '0.95rem',
+                        fontWeight: 600,
+                        textDecoration: item.isChecked ? 'line-through' : 'none'
+                      }}
+                    >
+                      {item.ingredientName}
                     </span>
-                  )}
-                </div>
-              ))
+                    {(item.quantity || item.unit) && (
+                      <span style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        color: 'var(--primary)',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '1rem',
+                        background: 'var(--primary-light)',
+                        border: '1px solid rgba(159, 64, 45, 0.15)'
+                      }}>
+                        {item.quantity} {item.unit}
+                      </span>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
 

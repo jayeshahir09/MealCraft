@@ -270,7 +270,7 @@ export default function DashboardPage() {
         {/* Metric 1: Saved Cookbook */}
         <Link
           to="/recipes"
-          className="glass-panel"
+          className="glass-panel stat-card"
           style={{
             padding: '1.35rem 1.5rem',
             borderRadius: '1.25rem',
@@ -279,7 +279,7 @@ export default function DashboardPage() {
             alignItems: 'center',
             justifyContent: 'space-between',
             border: '1.5px solid rgba(159, 64, 45, 0.18)',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           <div>
@@ -301,7 +301,7 @@ export default function DashboardPage() {
         {/* Metric 2: Weekly Plan Progress */}
         <Link
           to="/planner"
-          className="glass-panel"
+          className="glass-panel stat-card"
           style={{
             padding: '1.35rem 1.5rem',
             borderRadius: '1.25rem',
@@ -310,7 +310,7 @@ export default function DashboardPage() {
             flexDirection: 'column',
             justifyContent: 'space-between',
             border: '1.5px solid rgba(159, 64, 45, 0.18)',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -337,7 +337,7 @@ export default function DashboardPage() {
         {/* Metric 3: Pantry In-Stock */}
         <Link
           to="/profile"
-          className="glass-panel"
+          className="glass-panel stat-card"
           style={{
             padding: '1.35rem 1.5rem',
             borderRadius: '1.25rem',
@@ -346,7 +346,7 @@ export default function DashboardPage() {
             alignItems: 'center',
             justifyContent: 'space-between',
             border: '1.5px solid rgba(159, 64, 45, 0.18)',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           <div>
@@ -368,7 +368,7 @@ export default function DashboardPage() {
         {/* Metric 4: Missing Groceries Checklist */}
         <Link
           to="/shopping"
-          className="glass-panel"
+          className="glass-panel stat-card"
           style={{
             padding: '1.35rem 1.5rem',
             borderRadius: '1.25rem',
@@ -377,7 +377,7 @@ export default function DashboardPage() {
             alignItems: 'center',
             justifyContent: 'space-between',
             border: '1.5px solid rgba(159, 64, 45, 0.18)',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           <div>

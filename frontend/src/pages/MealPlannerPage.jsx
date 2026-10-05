@@ -24,6 +24,7 @@ export default function MealPlannerPage() {
   const [savedRecipes, setSavedRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPicker, setShowPicker] = useState(null); // { day, meal }
+  const [pickerSearch, setPickerSearch] = useState('');
 
   const loadPlan = useCallback(async () => {
     setLoading(true);
@@ -236,7 +237,7 @@ export default function MealPlannerPage() {
               boxShadow: 'var(--shadow-lg)'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.35rem', color: 'var(--on-background)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span>{MEAL_ICONS[showPicker.meal]}</span>
                 <span>Add to {showPicker.day} {showPicker.meal.toLowerCase()}</span>
@@ -245,6 +246,20 @@ export default function MealPlannerPage() {
                 <X size={18} />
               </button>
             </div>
+
+            {savedRecipes.length > 5 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <input
+                  type="text"
+                  placeholder="Filter recipes..."
+                  value={pickerSearch}
+                  onChange={e => setPickerSearch(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%', padding: '0.55rem 0.85rem', fontSize: '0.875rem', borderRadius: '0.65rem' }}
+                />
+              </div>
+            )}
+
             {savedRecipes.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
                 <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📖</p>
@@ -253,19 +268,25 @@ export default function MealPlannerPage() {
                 </p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
-                {savedRecipes.map(recipe => (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', maxHeight: '55vh', overflowY: 'auto', paddingRight: '4px' }}>
+                {savedRecipes
+                  .filter(r => !pickerSearch || r.title.toLowerCase().includes(pickerSearch.toLowerCase()) || (r.cuisine && r.cuisine.toLowerCase().includes(pickerSearch.toLowerCase())))
+                  .map(recipe => (
                   <div
                     key={recipe.id}
                     className="glass-panel"
                     style={{
                       cursor: 'pointer',
-                      padding: '1rem 1.25rem',
+                      padding: '0.9rem 1.15rem',
                       borderRadius: '0.875rem',
                       boxShadow: 'var(--shadow-sm)',
-                      transition: 'all 0.2s ease'
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      border: '1px solid var(--border-color)'
                     }}
-                    onClick={() => handleAssign(showPicker.day, showPicker.meal, recipe.id)}
+                    onClick={() => {
+                      handleAssign(showPicker.day, showPicker.meal, recipe.id);
+                      setPickerSearch('');
+                    }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ minWidth: 0, flex: 1, paddingRight: '0.75rem' }}>
