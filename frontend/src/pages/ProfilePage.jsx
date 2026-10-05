@@ -520,47 +520,68 @@ export default function ProfilePage() {
         </div>
 
         {/* Pantry list */}
-        {pantryItems.length === 0 ? (
-          <div className="empty-state" style={{ padding: '2rem', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-muted)' }}>Your pantry is currently empty. Add staple ingredients above!</p>
+        <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
+              Current Stock ({pantryItems.length})
+            </span>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1rem' }}>
-            {pantryItems.map(item => {
-              const master = findMasterIngredient(item.ingredientName);
-              return (
-                <span
-                  key={item.id}
-                  className="active-tag"
-                  style={{
-                    fontSize: '0.85rem',
-                    padding: '0.4rem 0.85rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.45rem'
-                  }}
-                >
-                  <span style={{ fontSize: '1rem' }}>{master?.emoji || '🥕'}</span>
-                  <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>
-                    {item.ingredientName}
+
+          {pantryItems.length === 0 ? (
+            <div className="empty-state" style={{ padding: '2rem 1rem', textAlign: 'center', background: 'var(--surface-container-lowest)', borderRadius: '1rem' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>Your pantry is currently empty. Add staple ingredients above!</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+              {pantryItems.map(item => {
+                const master = findMasterIngredient(item.ingredientName);
+                return (
+                  <span
+                    key={item.id}
+                    className="active-tag animate-fade-in-up"
+                    style={{
+                      fontSize: '0.88rem',
+                      padding: '0.45rem 0.9rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      borderRadius: '2rem',
+                      boxShadow: 'var(--shadow-sm)',
+                      background: 'var(--bg-surface)',
+                      border: '1.5px solid var(--border-color)'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.15rem' }}>{master?.emoji || '🥕'}</span>
+                    <span style={{ textTransform: 'capitalize', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {item.ingredientName}
+                    </span>
                     {item.quantity && (
-                      <span style={{ fontWeight: 400, opacity: 0.85, marginLeft: '0.25rem' }}>
-                        ({item.quantity}{item.unit ? ' ' + item.unit : ''})
+                      <span style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        padding: '0.15rem 0.5rem',
+                        borderRadius: '1rem',
+                        background: 'var(--primary-light)',
+                        color: 'var(--primary)'
+                      }}>
+                        {item.quantity}{item.unit ? ' ' + item.unit : ''}
                       </span>
                     )}
+                    <button
+                      onClick={() => handleDeletePantryItem(item.id)}
+                      className="stitch-tag-remove"
+                      aria-label={`Remove ${item.ingredientName}`}
+                      title={`Remove ${item.ingredientName}`}
+                      style={{ marginLeft: '0.2rem' }}
+                    >
+                      <X size={13} />
+                    </button>
                   </span>
-                  <button
-                    onClick={() => handleDeletePantryItem(item.id)}
-                    className="stitch-tag-remove"
-                    aria-label={`Remove ${item.ingredientName}`}
-                  >
-                    <X size={13} />
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

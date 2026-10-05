@@ -17,7 +17,7 @@ export const MASTER_INGREDIENTS = [
   { name: 'Zucchini', category: 'Produce', emoji: '🥒', unitGroup: 'count', defaultUnit: 'pcs', allowedUnits: ['pcs', 'g', 'cups'], synonyms: ['courgette', 'green zucchini'] },
   { name: 'Green Chili', category: 'Produce', emoji: '🌶️', unitGroup: 'count', defaultUnit: 'pcs', allowedUnits: ['pcs', 'tsp', 'tbsp'], synonyms: ['green chilies', 'serrano', 'jalapeno', 'thai chili'] },
   { name: 'Cabbage', category: 'Produce', emoji: '🥬', unitGroup: 'weight', defaultUnit: 'g', allowedUnits: ['g', 'kg', 'pcs', 'cups'], synonyms: ['green cabbage', 'red cabbage', 'shredded cabbage'] },
-  { name: 'Cauliflower', category: 'Produce', emoji: 'weight', defaultUnit: 'g', allowedUnits: ['g', 'kg', 'pcs', 'cups'], synonyms: ['cauliflower florets', 'gobi'] },
+  { name: 'Cauliflower', category: 'Produce', emoji: '🥦', unitGroup: 'weight', defaultUnit: 'g', allowedUnits: ['g', 'kg', 'pcs', 'cups'], synonyms: ['cauliflower florets', 'gobi'] },
   { name: 'Sweet Potato', category: 'Produce', emoji: '🍠', unitGroup: 'weight', defaultUnit: 'g', allowedUnits: ['g', 'kg', 'pcs'], synonyms: ['sweet potatoes', 'yam'] },
   { name: 'Green Onion', category: 'Produce', emoji: '🌱', unitGroup: 'count', defaultUnit: 'bunches', allowedUnits: ['bunches', 'pcs', 'tbsp', 'cups'], synonyms: ['scallion', 'scallions', 'spring onion', 'spring onions'] },
 
