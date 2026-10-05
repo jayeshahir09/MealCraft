@@ -6,7 +6,7 @@ import {
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/suggest', icon: Sparkles, label: 'AI Studio', badge: 'AI' },
+  { to: '/suggest', icon: Sparkles, label: 'Recipe Craft', badge: 'AI' },
   { to: '/planner', icon: Calendar, label: 'Planner' },
   { to: '/saved', icon: BookMarked, label: 'Saved Recipes' },
   { to: '/shopping', icon: ShoppingCart, label: 'Shopping' },
@@ -40,7 +40,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 MealCraft Pro
               </h1>
               <p className="sidebar-subtitle" style={{ color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
-                Kitchen Studio
+                Kitchen Craft
               </p>
             </div>
             {onClose && (

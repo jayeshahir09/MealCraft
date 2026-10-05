@@ -35,7 +35,7 @@ export default function Header({ onToggleSidebar, sidebarOpen }) {
         <Link
           to="/suggest"
           className="header-credits-pill"
-          title="AI Studio Credits Available"
+          title="Recipe Craft Credits Available"
         >
           <span className="credits-dot" />
           <Zap size={15} className="credits-icon" />
@@ -79,14 +79,14 @@ export default function Header({ onToggleSidebar, sidebarOpen }) {
           className="notification-btn"
           title="Culinary Assistant Guide"
           aria-label="Help Guide"
-          onClick={() => toast((t) => (
+          onClick={() => toast(() => (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--on-background)' }}>
                 🍳 MealCraft Workflow Guide
               </div>
               <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                 1. Add staples to your <strong>Kitchen Pantry</strong>.<br />
-                2. Use <strong>AI Studio</strong> to generate customized dishes.<br />
+                2. Use <strong>Recipe Craft</strong> to generate customized dishes.<br />
                 3. Assign meals to your <strong>Weekly Planner</strong> & generate grocery lists!
               </div>
             </div>

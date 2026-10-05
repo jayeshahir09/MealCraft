@@ -140,9 +140,9 @@ export default function IngredientAutocomplete({
             overflowY: 'auto',
             borderRadius: '0.85rem',
             padding: '0.4rem',
-            boxShadow: '0 12px 30px rgba(0, 0, 0, 0.25)',
-            border: '1px solid var(--border-color)',
-            background: 'var(--surface-overlay, #222)'
+            boxShadow: 'var(--shadow-lg)',
+            border: '1.5px solid var(--border-color)',
+            background: 'var(--bg-surface)'
           }}
         >
           {matches.map((item, idx) => (
@@ -154,37 +154,39 @@ export default function IngredientAutocomplete({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '0.6rem 0.85rem',
+                padding: '0.65rem 0.85rem',
                 borderRadius: '0.6rem',
                 cursor: 'pointer',
-                background: highlightIndex === idx ? 'var(--primary-light, rgba(159, 64, 45, 0.15))' : 'transparent',
-                color: highlightIndex === idx ? 'var(--primary)' : 'var(--on-background)',
+                background: highlightIndex === idx ? 'var(--primary-light)' : 'transparent',
+                color: highlightIndex === idx ? 'var(--primary)' : 'var(--text-primary)',
                 transition: 'all 0.15s ease'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                 <span style={{ fontSize: '1.2rem' }}>{item.emoji}</span>
                 <div>
-                  <span style={{ fontWeight: 600, fontSize: '0.92rem' }}>{item.name}</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.92rem', color: highlightIndex === idx ? 'var(--primary)' : 'var(--text-primary)' }}>{item.name}</span>
                   {item.synonyms && item.synonyms.some(s => s.toLowerCase().includes(query)) && (
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.4rem' }}>
-                      (matched alias)
+                      (alias)
                     </span>
                   )}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span style={{
-                  fontSize: '0.7rem',
-                  padding: '0.15rem 0.45rem',
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  padding: '0.2rem 0.55rem',
                   borderRadius: '1rem',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  color: 'var(--text-secondary)'
+                  background: 'var(--surface-container-highest)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-color)'
                 }}>
                   {item.category}
                 </span>
                 {item.defaultUnit && (
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
                     std: {item.defaultUnit}
                   </span>
                 )}
@@ -200,14 +202,15 @@ export default function IngredientAutocomplete({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                padding: '0.6rem 0.85rem',
+                padding: '0.65rem 0.85rem',
                 borderRadius: '0.6rem',
                 cursor: 'pointer',
                 borderTop: '1px dashed var(--border-color)',
                 marginTop: '0.25rem',
                 color: 'var(--primary)',
                 fontSize: '0.875rem',
-                fontWeight: 600
+                fontWeight: 600,
+                background: 'var(--primary-light)'
               }}
             >
               <Plus size={14} />

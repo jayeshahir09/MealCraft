@@ -249,7 +249,7 @@ export default function MealPlannerPage() {
               <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
                 <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📖</p>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', margin: 0 }}>
-                  No saved recipes found. Save dishes in the AI Studio first!
+                  No saved recipes found. Save dishes in Recipe Craft first!
                 </p>
               </div>
             ) : (

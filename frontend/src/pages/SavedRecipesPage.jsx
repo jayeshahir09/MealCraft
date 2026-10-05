@@ -181,7 +181,7 @@ export default function SavedRecipesPage() {
             {query || cuisine ? 'No recipes match your filter' : 'No saved recipes yet'}
           </h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-            {query || cuisine ? 'Try clearing your search query or selecting a different cuisine.' : 'Head over to the AI Recipe Studio to create and save delicious custom dishes!'}
+            {query || cuisine ? 'Try clearing your search query or selecting a different cuisine.' : 'Head over to AI Recipe Craft to create and save delicious custom dishes!'}
           </p>
           {(query || cuisine) && (
             <button

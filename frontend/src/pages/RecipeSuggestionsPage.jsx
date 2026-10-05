@@ -10,7 +10,7 @@ import PrepTimeSlider from '../components/common/PrepTimeSlider';
 import CustomDropdown from '../components/common/CustomDropdown';
 import { POPULAR_CUISINES, ALL_DIETS } from '../utils/cuisines';
 import IngredientAutocomplete from '../components/common/IngredientAutocomplete';
-import { findMasterIngredient, normalizeIngredientName } from '../utils/ingredients';
+import { findMasterIngredient, normalizeIngredientName, POPULAR_STAPLES, MASTER_INGREDIENTS } from '../utils/ingredients';
 import {
   Sparkles, Clock, Flame, ChefHat, BookmarkPlus, RefreshCw,
   X, Plus, Zap, Utensils, CheckCircle2, Check, Globe, Bookmark
@@ -197,7 +197,7 @@ export default function RecipeSuggestionsPage() {
           marginBottom: '0.5rem',
           letterSpacing: '-0.02em'
         }}>
-          AI Recipe Studio
+          AI Recipe Craft
         </h2>
         <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', margin: 0 }}>
           Curate your ingredients and set parameters. Our culinary AI will handle the rest.
@@ -269,7 +269,7 @@ export default function RecipeSuggestionsPage() {
           }} />
 
           {/* Section Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '1.25rem' }}>
             <div className="step-badge-1">1</div>
             <h3 style={{
               fontSize: '1.25rem',
@@ -282,8 +282,8 @@ export default function RecipeSuggestionsPage() {
             </h3>
           </div>
 
-          {/* Input Field with Master Ingredient Autocomplete & Quick Staples */}
-          <div style={{ marginBottom: '1.5rem' }}>
+          {/* 1. Input Field with Autocomplete & Add Button */}
+          <div style={{ marginBottom: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
               <div style={{ flex: 1 }}>
                 <IngredientAutocomplete
@@ -291,8 +291,7 @@ export default function RecipeSuggestionsPage() {
                   onChange={setInputVal}
                   onSelect={(item) => handleAddCanonicalIngredient(item)}
                   placeholder="Search ingredient (e.g. Salmon, Garlic, Spinach)..."
-                  showStaples={true}
-                  onStapleClick={(staple) => handleAddCanonicalIngredient(staple)}
+                  showStaples={false}
                 />
               </div>
               <button
@@ -305,7 +304,8 @@ export default function RecipeSuggestionsPage() {
                   borderRadius: '0.75rem',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '0.35rem'
+                  gap: '0.35rem',
+                  fontWeight: 700
                 }}
                 title="Add Ingredient"
               >
@@ -314,31 +314,50 @@ export default function RecipeSuggestionsPage() {
             </div>
           </div>
 
-          {/* Active Canvas Tags Container with Visible Border */}
+          {/* 2. Active Canvas Tags Container - Directly Under Input Field */}
           <div style={{
-            marginBottom: '1.75rem',
+            marginBottom: '1.5rem',
             background: 'var(--surface-container)',
             border: '1.5px dashed var(--border-color)',
             borderRadius: '1rem',
-            padding: '1.25rem',
+            padding: '1rem 1.25rem',
             boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.05)'
           }}>
-            <p style={{
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              color: 'var(--primary)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              marginBottom: '0.75rem'
-            }}>
-              Active Canvas ({ingredients.length} item{ingredients.length !== 1 ? 's' : ''})
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+              <p style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: 'var(--primary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                margin: 0
+              }}>
+                Active Ingredients ({ingredients.length} item{ingredients.length !== 1 ? 's' : ''})
+              </p>
+              {ingredients.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIngredients([])}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    fontWeight: 600
+                  }}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
               {ingredients.map((ing) => {
                 const master = findMasterIngredient(ing);
                 return (
-                  <span key={ing} className="active-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.85rem' }}>
-                    <span style={{ fontSize: '1rem' }}>{master?.emoji || '🥕'}</span>
+                  <span key={ing} className="active-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.4rem 0.85rem' }}>
+                    <span style={{ fontSize: '1.1rem' }}>{master?.emoji || '🥕'}</span>
                     <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{ing}</span>
                     <button
                       onClick={() => removeIngredient(ing)}
@@ -351,29 +370,80 @@ export default function RecipeSuggestionsPage() {
                 );
               })}
               {ingredients.length === 0 && (
-                <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  No ingredients added yet. Search an ingredient above or tap quick staples/pantry items below.
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.25rem 0' }}>
+                  No ingredients added yet. Type an ingredient above or tap quick staples below to add.
                 </span>
               )}
             </div>
           </div>
 
-          {/* Quick Add from Pantry (Only when user has real pantry stock) */}
+          {/* 3. Quick Master Staples Section */}
+          <div style={{ marginBottom: pantryItems.length > 0 ? '1.25rem' : 0 }}>
+            <p style={{
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              color: 'var(--text-secondary)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              marginBottom: '0.55rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem'
+            }}>
+              <Sparkles size={14} style={{ color: 'var(--primary)' }} />
+              <span>Quick Master Staples</span>
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
+              {POPULAR_STAPLES.map((stapleName) => {
+                const master = MASTER_INGREDIENTS.find(i => i.name === stapleName);
+                const isAdded = ingredients.includes(stapleName.toLowerCase());
+                return (
+                  <button
+                    key={stapleName}
+                    type="button"
+                    onClick={() => handleAddCanonicalIngredient(master || stapleName)}
+                    className={`quick-add-pill ${isAdded ? 'active-pantry-pill' : ''}`}
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      fontSize: '0.8rem',
+                      borderRadius: '2rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      border: isAdded ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                      color: isAdded ? 'var(--primary)' : 'var(--text-primary)',
+                      background: isAdded ? 'var(--primary-light)' : 'var(--surface-container)',
+                      fontWeight: isAdded ? 700 : 500,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span>{master?.emoji || '🥕'}</span>
+                    <span>{stapleName}</span>
+                    {isAdded && <Check size={12} style={{ color: 'var(--primary)' }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 4. Quick Add from Pantry (Only when user has pantry stock) */}
           {pantryItems.length > 0 && (
             <div>
               <p style={{
-                fontSize: '0.875rem',
-                fontWeight: 600,
+                fontSize: '0.8rem',
+                fontWeight: 700,
                 color: 'var(--text-secondary)',
-                marginBottom: '0.75rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                marginBottom: '0.55rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.45rem'
               }}>
-                <Utensils size={15} style={{ color: 'var(--primary)' }} />
-                <span>Quick Add from Pantry ({pantryItems.length})</span>
+                <Utensils size={14} style={{ color: 'var(--primary)' }} />
+                <span>My Kitchen Pantry ({pantryItems.length})</span>
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
                 {pantryItems.map((item) => {
                   const isAdded = ingredients.includes(item.toLowerCase());
                   return (
@@ -383,14 +453,20 @@ export default function RecipeSuggestionsPage() {
                       onClick={() => togglePantryIngredient(item)}
                       className={`quick-add-pill ${isAdded ? 'active-pantry-pill' : ''}`}
                       style={{
+                        padding: '0.35rem 0.75rem',
+                        fontSize: '0.8rem',
+                        borderRadius: '2rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
                         border: isAdded ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
-                        color: isAdded ? 'var(--primary)' : 'var(--text-secondary)',
+                        color: isAdded ? 'var(--primary)' : 'var(--text-primary)',
                         background: isAdded ? 'var(--primary-light)' : 'var(--surface-container)',
                         fontWeight: isAdded ? 700 : 500
                       }}
                     >
-                      {isAdded && <Check size={13} style={{ color: 'var(--primary)' }} />}
-                      <span>{item}</span>
+                      {isAdded && <Check size={12} style={{ color: 'var(--primary)' }} />}
+                      <span style={{ textTransform: 'capitalize' }}>{item}</span>
                     </button>
                   );
                 })}

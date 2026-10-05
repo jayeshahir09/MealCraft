@@ -207,7 +207,7 @@ export default function AnalyticsPage() {
 
         {savedRecipes.length === 0 ? (
           <div className="empty-state" style={{ padding: '1.5rem', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-muted)', margin: 0 }}>Save some recipes first from the AI Studio!</p>
+            <p style={{ color: 'var(--text-muted)', margin: 0 }}>Save some recipes first from Recipe Craft!</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem' }}>

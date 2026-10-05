@@ -116,7 +116,7 @@ export default function NotificationsPage() {
               category: 'COOKING',
               icon: '🍽️',
               title: `No Meals Scheduled for Today (${todayDayLabel})`,
-              description: "You haven't assigned any meals for today yet. Use AI Studio or your saved recipes to plan your lunch or dinner!",
+              description: "You haven't assigned any meals for today yet. Use Recipe Craft or your saved recipes to plan your lunch or dinner!",
               timestamp: 'Morning Reminder',
               badgeColor: 'var(--accent)',
               actionLabel: 'Plan Today\'s Meals',
@@ -226,11 +226,11 @@ export default function NotificationsPage() {
               id: 'ai-studio-intro',
               category: 'SYSTEM',
               icon: '🤖',
-              title: 'Explore AI Recipe Studio',
+              title: 'Explore AI Recipe Craft',
               description: 'Generate customized gourmet recipes matched to your exact dietary goals and prep time preferences in seconds.',
               timestamp: 'Welcome Tip',
               badgeColor: '#8b5cf6',
-              actionLabel: 'Try AI Studio',
+              actionLabel: 'Try Recipe Craft',
               actionLink: '/suggest',
               priority: 'low'
             });
@@ -400,7 +400,7 @@ export default function NotificationsPage() {
               { key: 'mealReminders', label: 'Meal Schedule Alerts', desc: 'Reminders for breakfast, lunch, and dinner recipes' },
               { key: 'pantryAlerts', label: 'Pantry & Grocery Alerts', desc: 'Missing ingredients and restock notices' },
               { key: 'planningReminders', label: 'Weekly Planner Sync', desc: 'Progress prompts to finish scheduling your week' },
-              { key: 'aiTips', label: 'AI Studio & Recipe Tips', desc: 'Personalized culinary suggestions and cookbook reminders' },
+              { key: 'aiTips', label: 'Recipe Craft & Tips', desc: 'Personalized culinary suggestions and cookbook reminders' },
             ].map(pref => (
               <label
                 key={pref.key}

@@ -78,7 +78,7 @@ export default function LoginPage() {
             Welcome Back
           </h1>
           <p style={{ fontSize: '0.95rem', color: 'var(--on-surface-variant)', margin: 0 }}>
-            Sign in to your MealCraft Kitchen Studio
+            Sign in to your MealCraft Kitchen Craft
           </p>
         </div>
 

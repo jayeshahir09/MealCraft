@@ -18,7 +18,12 @@ import {
   ChevronRight,
   ChefHat,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Check,
+  Zap,
+  CalendarDays,
+  BookOpen,
+  ShoppingCart
 } from 'lucide-react';
 
 import { getMonday, formatWeekStart, formatWeekStartUTC } from '../utils/dateUtils';
@@ -251,7 +256,7 @@ export default function DashboardPage() {
               gap: '0.45rem'
             }}
           >
-            <Sparkles size={16} /> <span>Open AI Studio</span>
+            <Sparkles size={16} /> <span>Open Recipe Craft</span>
           </Link>
         </div>
       </div>
@@ -770,7 +775,7 @@ export default function DashboardPage() {
               <span style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📖</span>
               <p style={{ fontWeight: 600, color: 'var(--on-background)', margin: 0 }}>No saved recipes yet</p>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 1rem 0' }}>
-                Generate dishes in AI Studio and save them to your permanent cookbook!
+                Generate dishes in AI Recipe Craft and save them to your permanent cookbook!
               </p>
               <Link to="/suggest" className="btn btn-primary btn-sm" style={{ padding: '0.5rem 1rem' }}>
                 <Sparkles size={14} /> <span>Create Recipe</span>
