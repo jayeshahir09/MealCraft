@@ -124,101 +124,101 @@ export default function IngredientAutocomplete({
         }}>
           <Search size={16} />
         </div>
-      </div>
 
-      {/* Autocomplete Dropdown */}
-      {isOpen && (matches.length > 0 || (query.length > 1 && !exactMatch)) && (
-        <div
-          className="glass-panel animate-fade-in-up"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            left: 0,
-            right: 0,
-            zIndex: 999,
-            maxHeight: '280px',
-            overflowY: 'auto',
-            borderRadius: '0.85rem',
-            padding: '0.4rem',
-            boxShadow: 'var(--shadow-lg)',
-            border: '1.5px solid var(--border-color)',
-            background: 'var(--bg-surface)'
-          }}
-        >
-          {matches.map((item, idx) => (
-            <div
-              key={item.name}
-              onClick={() => handleSelect(item)}
-              onMouseEnter={() => setHighlightIndex(idx)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0.65rem 0.85rem',
-                borderRadius: '0.6rem',
-                cursor: 'pointer',
-                background: highlightIndex === idx ? 'var(--primary-light)' : 'transparent',
-                color: highlightIndex === idx ? 'var(--primary)' : 'var(--text-primary)',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                <span style={{ fontSize: '1.2rem' }}>{item.emoji}</span>
-                <div>
-                  <span style={{ fontWeight: 600, fontSize: '0.92rem', color: highlightIndex === idx ? 'var(--primary)' : 'var(--text-primary)' }}>{item.name}</span>
-                  {item.synonyms && item.synonyms.some(s => s.toLowerCase().includes(query)) && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.4rem' }}>
-                      (alias)
+        {/* Autocomplete Dropdown */}
+        {isOpen && (matches.length > 0 || (query.length > 1 && !exactMatch)) && (
+          <div
+            className="glass-panel animate-fade-in-up"
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 4px)',
+              left: 0,
+              right: 0,
+              zIndex: 9999,
+              maxHeight: '280px',
+              overflowY: 'auto',
+              borderRadius: '0.85rem',
+              padding: '0.4rem',
+              boxShadow: 'var(--shadow-lg)',
+              border: '1.5px solid var(--border-color)',
+              background: 'var(--bg-surface)'
+            }}
+          >
+            {matches.map((item, idx) => (
+              <div
+                key={item.name}
+                onClick={() => handleSelect(item)}
+                onMouseEnter={() => setHighlightIndex(idx)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '0.6rem',
+                  cursor: 'pointer',
+                  background: highlightIndex === idx ? 'var(--primary-light)' : 'transparent',
+                  color: highlightIndex === idx ? 'var(--primary)' : 'var(--text-primary)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <span style={{ fontSize: '1.2rem' }}>{item.emoji}</span>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: '0.92rem', color: highlightIndex === idx ? 'var(--primary)' : 'var(--text-primary)' }}>{item.name}</span>
+                    {item.synonyms && item.synonyms.some(s => s.toLowerCase().includes(query)) && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.4rem' }}>
+                        (alias)
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: '1rem',
+                    background: 'var(--surface-container-highest)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    {item.category}
+                  </span>
+                  {item.defaultUnit && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                      std: {item.defaultUnit}
                     </span>
                   )}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 600,
-                  padding: '0.2rem 0.55rem',
-                  borderRadius: '1rem',
-                  background: 'var(--surface-container-highest)',
-                  color: 'var(--text-secondary)',
-                  border: '1px solid var(--border-color)'
-                }}>
-                  {item.category}
-                </span>
-                {item.defaultUnit && (
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                    std: {item.defaultUnit}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
+            ))}
 
-          {/* Custom entry fallback option */}
-          {query.length > 1 && !exactMatch && (
-            <div
-              onClick={handleCustomAdd}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.65rem 0.85rem',
-                borderRadius: '0.6rem',
-                cursor: 'pointer',
-                borderTop: '1px dashed var(--border-color)',
-                marginTop: '0.25rem',
-                color: 'var(--primary)',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                background: 'var(--primary-light)'
-              }}
-            >
-              <Plus size={14} />
-              <span>Use custom ingredient: <strong>"{value}"</strong></span>
-            </div>
-          )}
-        </div>
-      )}
+            {/* Custom entry fallback option */}
+            {query.length > 1 && !exactMatch && (
+              <div
+                onClick={handleCustomAdd}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '0.6rem',
+                  cursor: 'pointer',
+                  borderTop: '1px dashed var(--border-color)',
+                  marginTop: '0.25rem',
+                  color: 'var(--primary)',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  background: 'var(--primary-light)'
+                }}
+              >
+                <Plus size={14} />
+                <span>Use custom ingredient: <strong>"{value}"</strong></span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Quick Staples Row */}
       {showStaples && (
