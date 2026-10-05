@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { getAiCredits } from '../../api/recipeApi';
 import { Sun, Moon, Zap, Bell, Menu, LogOut, HelpCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -8,6 +10,33 @@ export default function Header({ onToggleSidebar, sidebarOpen }) {
   const { toggleTheme, isDark } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [credits, setCredits] = useState({ remaining: 20, max: 20 });
+
+  useEffect(() => {
+    if (!user) return;
+    getAiCredits()
+      .then(res => {
+        if (res.data) {
+          setCredits({
+            remaining: res.data.remainingCallsToday !== undefined ? res.data.remainingCallsToday : 20,
+            max: res.data.maxCallsPerDay || 20
+          });
+        }
+      })
+      .catch(() => {});
+
+    function handleCreditUpdate(e) {
+      if (e.detail) {
+        setCredits(prev => ({
+          remaining: e.detail.remainingCallsToday !== undefined ? e.detail.remainingCallsToday : prev.remaining,
+          max: e.detail.maxCallsPerDay || prev.max
+        }));
+      }
+    }
+
+    window.addEventListener('ai-credits-updated', handleCreditUpdate);
+    return () => window.removeEventListener('ai-credits-updated', handleCreditUpdate);
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -35,11 +64,11 @@ export default function Header({ onToggleSidebar, sidebarOpen }) {
         <Link
           to="/suggest"
           className="header-credits-pill"
-          title="Recipe Craft Credits Available"
+          title={`Daily AI Generation Quota: ${credits.remaining}/${credits.max} Credits Available`}
         >
           <span className="credits-dot" />
           <Zap size={15} className="credits-icon" />
-          <span>16/20 Credits</span>
+          <span>{credits.remaining}/{credits.max} Credits</span>
         </Link>
 
         {/* Theme Toggle Button */}

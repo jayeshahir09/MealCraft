@@ -89,6 +89,7 @@ public class AIRecipeService {
                 .recipes(recipes)
                 .fromCache(wasCacheHit)
                 .remainingCallsToday(remaining)
+                .maxCallsPerDay(maxCallsPerDay)
                 .build();
     }
 

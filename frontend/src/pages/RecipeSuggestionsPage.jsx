@@ -69,6 +69,12 @@ export default function RecipeSuggestionsPage() {
       .then(res => {
         if (res.data?.remainingCallsToday !== undefined) {
           setRemaining(res.data.remainingCallsToday);
+          window.dispatchEvent(new CustomEvent('ai-credits-updated', {
+            detail: {
+              remainingCallsToday: res.data.remainingCallsToday,
+              maxCallsPerDay: res.data.maxCallsPerDay || 20
+            }
+          }));
         }
       })
       .catch(() => {});
@@ -153,10 +159,19 @@ export default function RecipeSuggestionsPage() {
       if (res.data?.recipes?.length > 0) {
         setRecipes(res.data.recipes);
       }
-      if (res.data.remainingCallsToday !== undefined) {
+      if (res.data?.remainingCallsToday !== undefined) {
         setRemaining(res.data.remainingCallsToday);
+        window.dispatchEvent(new CustomEvent('ai-credits-updated', {
+          detail: {
+            remainingCallsToday: res.data.remainingCallsToday,
+            maxCallsPerDay: res.data.maxCallsPerDay || 20
+          }
+        }));
       }
-      toast.success(`Generated ${res.data.recipes?.length || 3} gourmet recipes! ✨`);
+      if (res.data?.fromCache) {
+        toast('⚡ Served from recipe cache (0 AI credits used)', { icon: '✨' });
+      }
+      toast.success(`Generated ${res.data?.recipes?.length || 3} gourmet recipes! ✨`);
       setTimeout(() => {
         document.getElementById('curated-results')?.scrollIntoView({ behavior: 'smooth' });
       }, 150);
@@ -187,21 +202,48 @@ export default function RecipeSuggestionsPage() {
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
-      {/* Header Title Section */}
-      <div style={{ marginBottom: searchParams.toString() ? '1.5rem' : '2.5rem' }} className="animate-fade-in-up">
-        <h2 style={{
-          fontSize: 'clamp(2rem, 3.5vw, 3rem)',
-          fontFamily: 'var(--font-display)',
-          fontWeight: 700,
-          color: 'var(--on-background)',
-          marginBottom: '0.5rem',
-          letterSpacing: '-0.02em'
-        }}>
-          AI Recipe Craft
-        </h2>
-        <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', margin: 0 }}>
-          Curate your ingredients and set parameters. Our culinary AI will handle the rest.
-        </p>
+      {/* Header Title Section with Live Credit Quota */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          marginBottom: searchParams.toString() ? '1.5rem' : '2.5rem'
+        }}
+        className="animate-fade-in-up"
+      >
+        <div>
+          <h2 style={{
+            fontSize: 'clamp(2rem, 3.5vw, 3rem)',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 700,
+            color: 'var(--on-background)',
+            marginBottom: '0.5rem',
+            letterSpacing: '-0.02em'
+          }}>
+            AI Recipe Craft
+          </h2>
+          <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', margin: 0 }}>
+            Curate your ingredients and set parameters. Our culinary AI will handle the rest.
+          </p>
+        </div>
+
+        <div
+          className="header-credits-pill"
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '9999px',
+            fontSize: '0.85rem',
+            boxShadow: 'var(--shadow-sm)'
+          }}
+          title="Daily AI generation allowance"
+        >
+          <span className="credits-dot" />
+          <Zap size={15} className="credits-icon" />
+          <span>{remaining !== null ? `${remaining}/20` : '20/20'} Daily AI Calls Left</span>
+        </div>
       </div>
 
       {searchParams.toString() && (
@@ -780,8 +822,25 @@ export default function RecipeSuggestionsPage() {
             </div>
         </section>
 
-        {/* Primary Generate Action CTA */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem' }} className="animate-fade-in-up delay-300">
+        {/* Primary Generate Action CTA with Live Credits Counter */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            paddingTop: '0.5rem'
+          }}
+          className="animate-fade-in-up delay-300"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+            <Zap size={16} style={{ color: 'var(--primary)' }} />
+            <span>
+              Daily Limit: <strong>{remaining !== null ? `${remaining}/20` : '20/20'}</strong> AI generations available
+            </span>
+          </div>
+
           <button
             onClick={handleSuggest}
             disabled={loading || ingredients.length === 0}

@@ -15,4 +15,5 @@ public class RecipeSuggestionResponse {
     private List<AiRecipeDTO> recipes;
     private boolean fromCache;
     private int remainingCallsToday;
+    private int maxCallsPerDay;
 }
