@@ -33,5 +33,7 @@ public class MealPlanDTO {
         private List<String> steps;
         private String dayOfWeek;
         private String mealType;
+        private Boolean isCooked;
+        private java.time.LocalDateTime cookedAt;
     }
 }

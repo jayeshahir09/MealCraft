@@ -3,7 +3,6 @@ package com.mealplanner.controller;
 import com.mealplanner.dto.MealPlanDTO;
 import com.mealplanner.service.MealPlanService;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,10 +13,13 @@ import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/mealplans")
-@RequiredArgsConstructor
 public class MealPlanController {
 
     private final MealPlanService mealPlanService;
+
+    public MealPlanController(MealPlanService mealPlanService) {
+        this.mealPlanService = mealPlanService;
+    }
 
     @GetMapping("/{weekStart}")
     public ResponseEntity<MealPlanDTO> getMealPlan(
@@ -34,6 +36,16 @@ public class MealPlanController {
         return ResponseEntity.ok(mealPlanService.assignRecipeToSlot(
                 userDetails.getUsername(), weekStart,
                 request.getDayOfWeek(), request.getMealType(), request.getRecipeId()));
+    }
+
+    @PostMapping("/{weekStart}/slot/cook")
+    public ResponseEntity<MealPlanDTO> toggleCooked(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart,
+            @RequestBody ToggleCookedRequest request) {
+        return ResponseEntity.ok(mealPlanService.toggleSlotCooked(
+                userDetails.getUsername(), weekStart,
+                request.getDayOfWeek(), request.getMealType(), request.getCooked()));
     }
 
     @DeleteMapping("/{weekStart}/slot")
@@ -59,5 +71,12 @@ public class MealPlanController {
         private String dayOfWeek;
         private String mealType;
         private Long recipeId;
+    }
+
+    @Data
+    static class ToggleCookedRequest {
+        private String dayOfWeek;
+        private String mealType;
+        private Boolean cooked;
     }
 }

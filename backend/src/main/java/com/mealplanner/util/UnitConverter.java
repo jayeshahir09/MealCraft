@@ -157,6 +157,68 @@ public class UnitConverter {
         return baseQty;
     }
 
+    private static final Map<String, String> DEFAULT_UNITS = Map.ofEntries(
+            Map.entry("garlic", "cloves"),
+            Map.entry("onion", "pcs"),
+            Map.entry("tomato", "pcs"),
+            Map.entry("potato", "g"),
+            Map.entry("ginger", "g"),
+            Map.entry("lemon", "pcs"),
+            Map.entry("lime", "pcs"),
+            Map.entry("carrot", "pcs"),
+            Map.entry("spinach", "g"),
+            Map.entry("bell pepper", "pcs"),
+            Map.entry("broccoli", "g"),
+            Map.entry("mushroom", "g"),
+            Map.entry("avocado", "pcs"),
+            Map.entry("cucumber", "pcs"),
+            Map.entry("zucchini", "pcs"),
+            Map.entry("green chili", "pcs"),
+            Map.entry("cabbage", "g"),
+            Map.entry("cauliflower", "g"),
+            Map.entry("green onion", "bunches"),
+            Map.entry("egg", "pcs"),
+            Map.entry("milk", "ml"),
+            Map.entry("cream", "ml"),
+            Map.entry("butter", "g"),
+            Map.entry("cheese", "g"),
+            Map.entry("cheddar", "g"),
+            Map.entry("mozzarella", "g"),
+            Map.entry("parmesan", "g"),
+            Map.entry("paneer", "g"),
+            Map.entry("rice", "g"),
+            Map.entry("pasta", "g"),
+            Map.entry("flour", "g"),
+            Map.entry("all-purpose flour", "g"),
+            Map.entry("oats", "g"),
+            Map.entry("chicken", "g"),
+            Map.entry("beef", "g"),
+            Map.entry("salmon", "g"),
+            Map.entry("shrimp", "g"),
+            Map.entry("olive oil", "tbsp"),
+            Map.entry("oil", "tbsp"),
+            Map.entry("soy sauce", "tbsp"),
+            Map.entry("salt", "tsp"),
+            Map.entry("black pepper", "tsp"),
+            Map.entry("pepper", "tsp"),
+            Map.entry("cumin", "tsp"),
+            Map.entry("coriander", "bunches"),
+            Map.entry("paprika", "tsp"),
+            Map.entry("turmeric", "tsp"),
+            Map.entry("sugar", "g")
+    );
+
+    public static String getDefaultUnit(String ingredientName) {
+        if (ingredientName == null || ingredientName.isBlank()) return "pcs";
+        String normalized = normalizeIngredientName(ingredientName);
+        for (Map.Entry<String, String> entry : DEFAULT_UNITS.entrySet()) {
+            if (normalized.contains(entry.getKey())) {
+                return entry.getValue();
+            }
+        }
+        return "pcs";
+    }
+
     public static String formatQuantity(double qty) {
         if (qty <= 0) return "0";
         if (qty == Math.floor(qty)) {

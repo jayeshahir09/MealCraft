@@ -3,7 +3,6 @@ package com.mealplanner.service;
 import com.mealplanner.dto.MealPlanDTO;
 import com.mealplanner.entity.*;
 import com.mealplanner.repository.*;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,13 +11,28 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class MealPlanService {
 
     private final MealPlanRepository mealPlanRepository;
     private final MealPlanEntryRepository mealPlanEntryRepository;
     private final RecipeRepository recipeRepository;
     private final UserRepository userRepository;
+    private final PantryService pantryService;
+    private final CookingHistoryRepository cookingHistoryRepository;
+
+    public MealPlanService(MealPlanRepository mealPlanRepository,
+                           MealPlanEntryRepository mealPlanEntryRepository,
+                           RecipeRepository recipeRepository,
+                           UserRepository userRepository,
+                           PantryService pantryService,
+                           CookingHistoryRepository cookingHistoryRepository) {
+        this.mealPlanRepository = mealPlanRepository;
+        this.mealPlanEntryRepository = mealPlanEntryRepository;
+        this.recipeRepository = recipeRepository;
+        this.userRepository = userRepository;
+        this.pantryService = pantryService;
+        this.cookingHistoryRepository = cookingHistoryRepository;
+    }
 
     public MealPlanDTO getMealPlan(String email, LocalDate weekStart) {
         User user = getUser(email);
@@ -73,6 +87,42 @@ public class MealPlanService {
     }
 
     @Transactional
+    public MealPlanDTO toggleSlotCooked(String email, LocalDate weekStart,
+                                        String dayOfWeek, String mealType, Boolean cooked) {
+        User user = getUser(email);
+        MealPlan plan = mealPlanRepository.findByUserIdAndWeekStartDate(user.getId(), weekStart)
+                .orElseThrow(() -> new IllegalArgumentException("Meal plan not found"));
+
+        MealPlanEntry.DayOfWeek day = MealPlanEntry.DayOfWeek.valueOf(dayOfWeek.toUpperCase());
+        MealPlanEntry.MealType type = MealPlanEntry.MealType.valueOf(mealType.toUpperCase());
+
+        MealPlanEntry entry = plan.getEntries().stream()
+                .filter(e -> e.getDayOfWeek() == day && e.getMealType() == type)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Meal slot not found"));
+
+        boolean targetCooked = (cooked != null) ? cooked : !entry.isCooked();
+
+        if (targetCooked && !entry.isCooked()) {
+            entry.setCooked(true);
+            entry.setCookedAt(java.time.LocalDateTime.now());
+            // Deduct recipe ingredients from pantry
+            pantryService.deductRecipeIngredients(user.getId(), entry.getRecipe());
+            // Log to cooking history
+            cookingHistoryRepository.save(CookingHistory.builder()
+                    .user(user)
+                    .recipe(entry.getRecipe())
+                    .notes("Cooked from meal plan (" + day + " " + type + ")")
+                    .build());
+        } else if (!targetCooked && entry.isCooked()) {
+            entry.setCooked(false);
+            entry.setCookedAt(null);
+        }
+
+        return toDTO(mealPlanRepository.save(plan));
+    }
+
+    @Transactional
     public void clearWeek(String email, LocalDate weekStart) {
         User user = getUser(email);
         mealPlanRepository.findByUserIdAndWeekStartDate(user.getId(), weekStart)
@@ -93,17 +143,19 @@ public class MealPlanService {
                         .map(e -> {
                             Recipe r = e.getRecipe();
                             return MealPlanDTO.MealPlanEntryDTO.builder()
-                                    .id(e.getId())
-                                    .recipeId(r != null ? r.getId() : null)
-                                    .recipeTitle(r != null ? r.getTitle() : null)
-                                    .estimatedCalories(r != null ? r.getEstimatedCalories() : null)
-                                    .estimatedTimeMinutes(r != null ? r.getEstimatedTimeMinutes() : null)
-                                    .cuisine(r != null ? r.getCuisine() : null)
-                                    .ingredients(r != null ? r.getIngredients() : null)
-                                    .steps(r != null ? r.getSteps() : null)
-                                    .dayOfWeek(e.getDayOfWeek().name())
-                                    .mealType(e.getMealType().name())
-                                    .build();
+                                     .id(e.getId())
+                                     .recipeId(r != null ? r.getId() : null)
+                                     .recipeTitle(r != null ? r.getTitle() : null)
+                                     .estimatedCalories(r != null ? r.getEstimatedCalories() : null)
+                                     .estimatedTimeMinutes(r != null ? r.getEstimatedTimeMinutes() : null)
+                                     .cuisine(r != null ? r.getCuisine() : null)
+                                     .ingredients(r != null ? r.getIngredients() : null)
+                                     .steps(r != null ? r.getSteps() : null)
+                                     .dayOfWeek(e.getDayOfWeek().name())
+                                     .mealType(e.getMealType().name())
+                                     .isCooked(e.isCooked())
+                                     .cookedAt(e.getCookedAt())
+                                     .build();
                         })
                         .collect(Collectors.toList());
 

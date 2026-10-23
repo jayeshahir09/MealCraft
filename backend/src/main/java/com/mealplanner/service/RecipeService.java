@@ -6,7 +6,6 @@ import com.mealplanner.entity.Recipe;
 import com.mealplanner.entity.User;
 import com.mealplanner.repository.RecipeRepository;
 import com.mealplanner.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,11 +14,15 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class RecipeService {
 
     private final RecipeRepository recipeRepository;
     private final UserRepository userRepository;
+
+    public RecipeService(RecipeRepository recipeRepository, UserRepository userRepository) {
+        this.recipeRepository = recipeRepository;
+        this.userRepository = userRepository;
+    }
 
     public List<RecipeDTO> getSavedRecipes(String email, String cuisine, String query) {
         User user = getUser(email);
@@ -42,7 +45,10 @@ public class RecipeService {
         // Build full ingredient list from usedIngredients + missingIngredients
         List<Recipe.IngredientItem> ingredients = aiRecipe.getUsedIngredients() != null
                 ? aiRecipe.getUsedIngredients().stream()
-                    .map(name -> new Recipe.IngredientItem(name, null, null))
+                    .map(name -> new Recipe.IngredientItem(
+                            name,
+                            "1",
+                            com.mealplanner.util.UnitConverter.getDefaultUnit(name)))
                     .collect(Collectors.toList())
                 : new java.util.ArrayList<>();
 

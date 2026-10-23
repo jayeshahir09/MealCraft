@@ -6,7 +6,6 @@ import com.mealplanner.entity.User;
 import com.mealplanner.repository.CookingHistoryRepository;
 import com.mealplanner.repository.RecipeRepository;
 import com.mealplanner.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,12 +15,22 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class AnalyticsService {
 
     private final CookingHistoryRepository cookingHistoryRepository;
     private final RecipeRepository recipeRepository;
     private final UserRepository userRepository;
+    private final PantryService pantryService;
+
+    public AnalyticsService(CookingHistoryRepository cookingHistoryRepository,
+                            RecipeRepository recipeRepository,
+                            UserRepository userRepository,
+                            PantryService pantryService) {
+        this.cookingHistoryRepository = cookingHistoryRepository;
+        this.recipeRepository = recipeRepository;
+        this.userRepository = userRepository;
+        this.pantryService = pantryService;
+    }
 
     @Transactional
     public Map<String, Object> logCookedRecipe(String email, Long recipeId, String notes) {
@@ -36,6 +45,10 @@ public class AnalyticsService {
                 .build();
 
         CookingHistory saved = cookingHistoryRepository.save(history);
+
+        // Deduct recipe ingredients from pantry
+        pantryService.deductRecipeIngredients(user.getId(), recipe);
+
         return Map.of("id", saved.getId(), "cookedAt", saved.getCookedAt().toString());
     }
 

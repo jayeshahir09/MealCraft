@@ -34,6 +34,13 @@ public class MealPlanEntry {
     @Column(name = "meal_type")
     private MealType mealType;
 
+    @Column(name = "is_cooked", nullable = false)
+    @Builder.Default
+    private boolean isCooked = false;
+
+    @Column(name = "cooked_at")
+    private java.time.LocalDateTime cookedAt;
+
     public enum DayOfWeek {
         MON, TUE, WED, THU, FRI, SAT, SUN
     }

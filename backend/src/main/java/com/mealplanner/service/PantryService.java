@@ -5,19 +5,26 @@ import com.mealplanner.entity.PantryItem;
 import com.mealplanner.entity.User;
 import com.mealplanner.repository.PantryRepository;
 import com.mealplanner.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import com.mealplanner.entity.Recipe;
+import com.mealplanner.util.UnitConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class PantryService {
 
     private final PantryRepository pantryRepository;
     private final UserRepository userRepository;
+
+    public PantryService(PantryRepository pantryRepository, UserRepository userRepository) {
+        this.pantryRepository = pantryRepository;
+        this.userRepository = userRepository;
+    }
 
     public List<PantryItemDTO> getPantryItems(String email) {
         User user = getUser(email);
@@ -56,6 +63,81 @@ public class PantryService {
         User user = getUser(email);
         List<PantryItem> items = pantryRepository.findByUserId(user.getId());
         pantryRepository.deleteAll(items);
+    }
+
+    @Transactional
+    public void deductRecipeIngredients(Long userId, Recipe recipe) {
+        if (recipe == null || recipe.getIngredients() == null || recipe.getIngredients().isEmpty()) {
+            return;
+        }
+
+        List<PantryItem> pantryItems = pantryRepository.findByUserId(userId);
+        if (pantryItems.isEmpty()) {
+            return;
+        }
+
+        // Map pantry items by normalized name
+        Map<String, PantryItem> pantryMap = new HashMap<>();
+        for (PantryItem item : pantryItems) {
+            String key = UnitConverter.normalizeIngredientName(item.getIngredientName());
+            pantryMap.put(key, item);
+        }
+
+        for (Recipe.IngredientItem ingredient : recipe.getIngredients()) {
+            if (ingredient.getName() == null || ingredient.getName().isBlank()) {
+                continue;
+            }
+
+            String key = UnitConverter.normalizeIngredientName(ingredient.getName());
+            PantryItem item = pantryMap.get(key);
+            if (item == null) {
+                continue;
+            }
+
+            String pQtyStr = item.getQuantity();
+            String pUnit = item.getUnit();
+
+            // If pantry item has no quantity (e.g. staple like salt or uncounted item)
+            if (pQtyStr == null || pQtyStr.isBlank()) {
+                continue;
+            }
+
+            double reqQty = UnitConverter.parseQuantity(ingredient.getQuantity());
+            double pQty = UnitConverter.parseQuantity(pQtyStr);
+
+            UnitConverter.UnitCategory reqCat = UnitConverter.getCategory(ingredient.getUnit());
+            UnitConverter.UnitCategory pCat = UnitConverter.getCategory(pUnit);
+
+            if (reqCat != UnitConverter.UnitCategory.UNKNOWN && reqCat == pCat) {
+                double reqBase = UnitConverter.toBaseUnit(reqQty, ingredient.getUnit());
+                double pBase = UnitConverter.toBaseUnit(pQty, pUnit);
+
+                if (pBase <= reqBase) {
+                    // Fully consumed -> delete item from pantry
+                    pantryRepository.delete(item);
+                    pantryMap.remove(key);
+                } else {
+                    // Remaining amount
+                    double remBase = pBase - reqBase;
+                    double remQty = UnitConverter.fromBaseUnit(remBase, pUnit);
+                    item.setQuantity(UnitConverter.formatQuantity(remQty));
+                    pantryRepository.save(item);
+                }
+            } else if (ingredient.getUnit() == null || ingredient.getUnit().isBlank()
+                    || pUnit == null || pUnit.isBlank()
+                    || ingredient.getUnit().equalsIgnoreCase(pUnit)) {
+                // Discrete or same unit
+                if (pQty <= reqQty) {
+                    // Fully consumed -> delete item from pantry
+                    pantryRepository.delete(item);
+                    pantryMap.remove(key);
+                } else {
+                    double remQty = pQty - reqQty;
+                    item.setQuantity(UnitConverter.formatQuantity(remQty));
+                    pantryRepository.save(item);
+                }
+            }
+        }
     }
 
     public List<String> getPantryIngredientNames(Long userId) {
