@@ -1,4 +1,4 @@
-# 🍳 MealCraft — Enterprise AI Recipe & Smart Meal Planning Platform
+# MealCraft — Intelligent Recipe Management & Meal Planning Platform
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.2-brightgreen.svg?logo=springboot)](https://spring.io/projects/spring-boot)
 [![Java](https://img.shields.io/badge/Java-21-orange.svg?logo=openjdk)](https://openjdk.org/)
@@ -8,7 +8,7 @@
 [![JUnit 5](https://img.shields.io/badge/Tested%20with-JUnit%205%20%7C%20Mockito-25A162.svg?logo=junit5)](https://junit.org/junit5/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker)](https://www.docker.com/)
 
-**MealCraft** is an intelligent, full-stack culinary platform that transforms pantry ingredients into personalized chef recipes, automates 7-day nutritional meal planning, and generates precise, unit-converted grocery shopping lists.
+**MealCraft** is an intelligent, full-stack culinary application that transforms pantry ingredients into personalized recipes, automates 7-day nutritional meal planning, and generates precise, unit-converted grocery shopping lists.
 
 ---
 
@@ -17,7 +17,7 @@
 ```mermaid
 flowchart TB
     subgraph Client ["Client Layer (React 18 + Vite)"]
-        UI[Glassmorphism Modern UI]
+        UI[Responsive Modern UI]
         Router[React Router v6]
         CatalogUI[Master Ingredient Catalog & Autocomplete]
         State[Auth & App State]
