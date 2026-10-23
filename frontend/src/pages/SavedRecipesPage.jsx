@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { getSavedRecipes, deleteRecipe } from '../api/recipeApi';
 import toast from 'react-hot-toast';
-import { Search, Trash2, Clock, Flame, ChefHat, X, Utensils, Check, Globe } from 'lucide-react';
+import { Search, Trash2, Clock, Flame, ChefHat, X, Utensils, Check, Globe, Sparkles } from 'lucide-react';
 import RecipeDetailModal from '../components/common/RecipeDetailModal';
 import CustomDropdown from '../components/common/CustomDropdown';
 import { POPULAR_CUISINES } from '../utils/cuisines';
@@ -12,6 +14,7 @@ export default function SavedRecipesPage() {
   const [query, setQuery] = useState('');
   const [cuisine, setCuisine] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [recipeToDelete, setRecipeToDelete] = useState(null);
 
   const loadRecipes = async () => {
     setLoading(true);
@@ -27,18 +30,21 @@ export default function SavedRecipesPage() {
 
   useEffect(() => { loadRecipes(); }, [query, cuisine]);
 
-  const handleDelete = async (id, title) => {
-    if (!confirm(`Delete "${title}"?`)) return;
+  const handleConfirmDelete = async () => {
+    if (!recipeToDelete) return;
     try {
-      await deleteRecipe(id);
-      setRecipes(p => p.filter(r => r.id !== id));
-      if (selectedRecipe?.id === id) setSelectedRecipe(null);
-      toast.success('Recipe deleted');
-    } catch { toast.error('Failed to delete recipe'); }
+      await deleteRecipe(recipeToDelete.id);
+      setRecipes(p => p.filter(r => r.id !== recipeToDelete.id));
+      if (selectedRecipe?.id === recipeToDelete.id) setSelectedRecipe(null);
+      toast.success(`"${recipeToDelete.title}" deleted`);
+      setRecipeToDelete(null);
+    } catch {
+      toast.error('Failed to delete recipe');
+    }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1280px', margin: '0 auto', width: '100%' }} className="animate-fade-in-up">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
       {/* Header */}
       <div>
         <h1 style={{
@@ -52,7 +58,7 @@ export default function SavedRecipesPage() {
           Saved Recipes
         </h1>
         <p style={{ fontSize: '1.1rem', color: 'var(--on-surface-variant)', margin: 0 }}>
-          Your curated cookbook of chef-crafted recipes with full cooking steps.
+          Your saved collection of recipes with full cooking steps.
         </p>
       </div>
 
@@ -63,7 +69,7 @@ export default function SavedRecipesPage() {
         display: 'flex',
         flexDirection: 'column',
         gap: '1.25rem',
-        border: '1.5px solid rgba(159, 64, 45, 0.22)',
+        border: '1px solid var(--border-color)',
         position: 'relative',
         zIndex: 50
       }}>
@@ -123,18 +129,17 @@ export default function SavedRecipesPage() {
                 key={c.id}
                 type="button"
                 onClick={() => setCuisine(c.id)}
-                className={`stitch-pill-btn${cuisine === c.id ? ' active' : ''}`}
+                className={`pill-btn${cuisine === c.id ? ' active' : ''}`}
                 style={{
                   whiteSpace: 'nowrap',
                   fontSize: '0.825rem',
                   padding: '0.45rem 0.95rem',
-                  border: cuisine === c.id ? '1.5px solid var(--primary)' : '1.5px solid rgba(159, 64, 45, 0.2)',
+                  border: cuisine === c.id ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.45rem'
                 }}
               >
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', lineHeight: 1 }}>{c.emoji}</span>
                 <span style={{ lineHeight: 1.2 }}>{c.label}</span>
               </button>
             ))}
@@ -144,7 +149,7 @@ export default function SavedRecipesPage() {
               <button
                 type="button"
                 onClick={() => setCuisine('')}
-                className="stitch-pill-btn active"
+                className="pill-btn active"
                 style={{
                   whiteSpace: 'nowrap',
                   fontSize: '0.825rem',
@@ -155,7 +160,6 @@ export default function SavedRecipesPage() {
                   gap: '0.45rem'
                 }}
               >
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', lineHeight: 1 }}>{POPULAR_CUISINES.find(c => c.id === cuisine)?.emoji || '🍽️'}</span>
                 <span style={{ lineHeight: 1.2 }}>{POPULAR_CUISINES.find(c => c.id === cuisine)?.label || cuisine}</span>
                 <X size={13} style={{ flexShrink: 0 }} />
               </button>
@@ -175,15 +179,14 @@ export default function SavedRecipesPage() {
       {loading ? (
         <div className="loader"><div className="spinner" /></div>
       ) : recipes.length === 0 ? (
-        <div className="glass-panel empty-state" style={{ borderRadius: '1.25rem', padding: '3.5rem 2rem', textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📖</div>
+        <div className="glass-panel empty-state" style={{ borderRadius: '1.25rem', padding: '3.5rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', color: 'var(--on-background)', marginBottom: '0.5rem' }}>
             {query || cuisine ? 'No recipes match your filter' : 'No saved recipes yet'}
           </h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-            {query || cuisine ? 'Try clearing your search query or selecting a different cuisine.' : 'Head over to AI Recipe Craft to create and save delicious custom dishes!'}
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', maxWidth: '480px' }}>
+            {query || cuisine ? 'Try clearing your search query or selecting a different cuisine.' : 'Head over to Recipes to discover and save dishes to your collection.'}
           </p>
-          {(query || cuisine) && (
+          {(query || cuisine) ? (
             <button
               className="quick-add-pill"
               onClick={() => { setQuery(''); setCuisine(''); }}
@@ -191,6 +194,22 @@ export default function SavedRecipesPage() {
             >
               Reset Filters
             </button>
+          ) : (
+            <Link
+              to="/suggest"
+              className="btn btn-primary"
+              style={{
+                marginTop: '1.25rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '0.75rem'
+              }}
+            >
+              <Sparkles size={16} />
+              <span>Discover Recipes</span>
+            </Link>
           )}
         </div>
       ) : (
@@ -199,17 +218,16 @@ export default function SavedRecipesPage() {
             Showing {recipes.length} curated recipe{recipes.length !== 1 ? 's' : ''}
           </p>
 
-          <div style={{
+          <div className="recipe-results-grid" style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
             gap: '1.75rem'
           }}>
             {recipes.map((recipe, idx) => {
               return (
                 <div
                   key={recipe.id}
-                  className="stitch-recipe-card animate-fade-in-scale"
-                  style={{ animationDelay: `${idx * 60}ms` }}
+                  className="recipe-card"
                 >
                   <div style={{
                     padding: '1.25rem 1.5rem 0.25rem',
@@ -230,7 +248,7 @@ export default function SavedRecipesPage() {
                       width: 34,
                       height: 34,
                       borderRadius: '0.65rem',
-                      background: 'rgba(159, 64, 45, 0.1)',
+                      background: 'var(--primary-light)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -295,7 +313,7 @@ export default function SavedRecipesPage() {
 
                       <button
                         className="btn btn-danger btn-sm"
-                        onClick={() => handleDelete(recipe.id, recipe.title)}
+                        onClick={() => setRecipeToDelete(recipe)}
                         style={{
                           flex: 1,
                           borderRadius: '0.75rem',
@@ -315,6 +333,70 @@ export default function SavedRecipesPage() {
             })}
           </div>
         </>
+      )}
+
+      {/* In-app Delete Recipe Confirmation Modal */}
+      {recipeToDelete && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.72)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem'
+          }}
+          onClick={() => setRecipeToDelete(null)}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              borderRadius: '1.25rem',
+              padding: '1.75rem',
+              background: 'var(--surface-container-high)',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
+              <div style={{ width: 38, height: 38, borderRadius: '0.65rem', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+                <Trash2 size={20} />
+              </div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--on-background)' }}>
+                Delete Recipe?
+              </h3>
+            </div>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Are you sure you want to delete <strong>"{recipeToDelete.title}"</strong> from your saved cookbook? This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setRecipeToDelete(null)}
+                style={{ padding: '0.6rem 1.25rem', borderRadius: '0.65rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleConfirmDelete}
+                style={{ padding: '0.6rem 1.25rem', borderRadius: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <Trash2 size={15} />
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Recipe Steps Detail Modal with background scroll locked */}

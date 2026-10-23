@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { login } from '../api/authApi';
 import toast from 'react-hot-toast';
-import { Mail, Lock, ArrowRight, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Sun, Moon, ChefHat } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -18,11 +18,12 @@ export default function LoginPage() {
     e.preventDefault();
     if (!email || !password) return toast.error('Please fill in all fields');
 
+    const cleanEmail = email.trim();
     setLoading(true);
     try {
-      const res = await login(email, password);
+      const res = await login(cleanEmail, password);
       loginSuccess(res.data);
-      toast.success(`Welcome back, ${res.data.name}! 🍽️`);
+      toast.success(`Welcome back, ${res.data.name}`);
       navigate('/dashboard');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Invalid email or password');
@@ -65,7 +66,7 @@ export default function LoginPage() {
             color: '#ffffff',
             boxShadow: '0 8px 16px rgba(255, 120, 84, 0.3)'
           }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>restaurant_menu</span>
+            <ChefHat size={32} strokeWidth={2.2} />
           </div>
           <h1 style={{
             fontSize: '1.85rem',
@@ -78,7 +79,7 @@ export default function LoginPage() {
             Welcome Back
           </h1>
           <p style={{ fontSize: '0.95rem', color: 'var(--on-surface-variant)', margin: 0 }}>
-            Sign in to your MealCraft Kitchen Craft
+            Sign in to your MealCraft account
           </p>
         </div>
 

@@ -23,10 +23,18 @@ import {
   Zap,
   CalendarDays,
   BookOpen,
-  ShoppingCart
+  ShoppingCart,
+  BookMarked,
+  Package,
+  Coffee,
+  Sun,
+  Moon,
+  Search,
+  Compass
 } from 'lucide-react';
 
 import { getMonday, formatWeekStart, formatWeekStartUTC } from '../utils/dateUtils';
+import { formatDisplayName, getTimeOfDayGreeting } from '../utils/textUtils';
 
 const BACKEND_DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -48,7 +56,6 @@ export default function DashboardPage() {
   const [selectedPantryIngs, setSelectedPantryIngs] = useState([]);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [generatingList, setGeneratingList] = useState(false);
 
   const todayIndex = new Date().getDay();
   const todayBackendDay = BACKEND_DAYS[todayIndex];
@@ -136,13 +143,6 @@ export default function DashboardPage() {
     loadDashboardData();
   }, [todayBackendDay, weekStart]);
 
-  const getTimeGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  };
-
   const togglePantrySelect = (ingName) => {
     setSelectedPantryIngs(prev =>
       prev.includes(ingName) ? prev.filter(i => i !== ingName) : [...prev, ingName]
@@ -202,18 +202,12 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2.25rem', maxWidth: '1280px', margin: '0 auto', width: '100%' }} className="animate-fade-in-up">
-      {/* 1. Header Greeting & Streak Cockpit */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2.25rem', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+      {/* 1. Header Greeting */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1.25rem' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>🍳</span>
-            <span style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Culinary Workspace
-            </span>
-          </div>
           <h1 style={{
-            fontSize: 'clamp(2rem, 3.5vw, 2.85rem)',
+            fontSize: 'clamp(1.85rem, 3.5vw, 2.75rem)',
             fontFamily: 'var(--font-display)',
             fontWeight: 700,
             color: 'var(--on-background)',
@@ -221,30 +215,15 @@ export default function DashboardPage() {
             letterSpacing: '-0.02em',
             lineHeight: 1.2
           }}>
-            {getTimeGreeting()}, {user?.name || 'Chef'}!
+            {getTimeOfDayGreeting()}, {formatDisplayName(user?.name)}!
           </h1>
-          <p style={{ fontSize: '1.05rem', color: 'var(--on-surface-variant)', margin: 0 }}>
-            You have <strong style={{ color: 'var(--primary)' }}>{plannedCount} meals scheduled</strong> this week and <strong style={{ color: 'var(--on-background)' }}>{pantryItems.length} ingredients</strong> in your pantry.
+          <p style={{ fontSize: '1rem', color: 'var(--on-surface-variant)', margin: 0 }}>
+            You have <strong style={{ color: 'var(--primary)' }}>{plannedCount} meals scheduled</strong> this week and <strong style={{ color: 'var(--on-background)' }}>{pantryItems.length} pantry items</strong>.
           </p>
         </div>
 
-        {/* Action Controls & Streak Badge */}
+        {/* Action Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
-          <div className="glass-panel" style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.55rem',
-            padding: '0.6rem 1.25rem',
-            borderRadius: '9999px',
-            boxShadow: '0 4px 14px rgba(255, 120, 84, 0.25)',
-            border: '1.5px solid rgba(159, 64, 45, 0.25)'
-          }}>
-            <Flame size={19} style={{ color: 'var(--primary)' }} />
-            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--on-background)' }}>
-              Kitchen Cooking Streak
-            </span>
-          </div>
-
           <Link
             to="/suggest"
             className="btn btn-primary"
@@ -256,18 +235,14 @@ export default function DashboardPage() {
               gap: '0.45rem'
             }}
           >
-            <Sparkles size={16} /> <span>Open Recipe Craft</span>
+            <ChefHat size={16} /> <span>Find Recipes</span>
           </Link>
         </div>
       </div>
 
-      {/* 2. Kitchen Pulse Metrics (4 Live Connected Glass Cards) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: '1.25rem'
-      }}>
-        {/* Metric 1: Saved Cookbook */}
+      {/* 2. Key Metrics Cards */}
+      <div className="dashboard-metrics-grid">
+        {/* Metric 1: Saved Recipes */}
         <Link
           to="/recipes"
           className="glass-panel stat-card"
@@ -278,23 +253,23 @@ export default function DashboardPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            border: '1.5px solid rgba(159, 64, 45, 0.18)',
+            border: '1px solid var(--border-color)',
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           <div>
             <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              My Cookbook
+              Saved Recipes
             </span>
-            <div style={{ fontSize: '1.85rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', marginTop: '0.2rem' }}>
+            <div className="stat-val" style={{ fontSize: '1.85rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', marginTop: '0.2rem' }}>
               {savedRecipes.length}
             </div>
             <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              View saved dishes <ChevronRight size={13} />
+              View all <ChevronRight size={13} />
             </span>
           </div>
-          <div style={{ width: 48, height: 48, borderRadius: '1rem', background: 'rgba(159, 64, 45, 0.12)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-            📖
+          <div className="stat-icon-box" style={{ width: 44, height: 44, borderRadius: '0.85rem', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BookMarked size={22} />
           </div>
         </Link>
 
@@ -309,19 +284,19 @@ export default function DashboardPage() {
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            border: '1.5px solid rgba(159, 64, 45, 0.18)',
+            border: '1px solid var(--border-color)',
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Weekly Schedule
+              Weekly Plan
             </span>
-            <span style={{ fontSize: '1.4rem' }}>📅</span>
+            <Calendar size={18} style={{ color: 'var(--primary)' }} />
           </div>
           <div style={{ margin: '0.5rem 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontSize: '1.85rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)' }}>
+              <span className="stat-val" style={{ fontSize: '1.85rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)' }}>
                 {plannedCount}<span style={{ fontSize: '1.1rem', color: 'var(--text-muted)', fontWeight: 500 }}>/21</span>
               </span>
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)' }}>
@@ -336,7 +311,7 @@ export default function DashboardPage() {
 
         {/* Metric 3: Pantry In-Stock */}
         <Link
-          to="/profile"
+          to="/pantry"
           className="glass-panel stat-card"
           style={{
             padding: '1.35rem 1.5rem',
@@ -345,23 +320,23 @@ export default function DashboardPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            border: '1.5px solid rgba(159, 64, 45, 0.18)',
+            border: '1px solid var(--border-color)',
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           <div>
             <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Kitchen Pantry
+              Pantry Items
             </span>
-            <div style={{ fontSize: '1.85rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', marginTop: '0.2rem' }}>
+            <div className="stat-val" style={{ fontSize: '1.85rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', marginTop: '0.2rem' }}>
               {pantryItems.length}
             </div>
             <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              Manage staples <ChevronRight size={13} />
+              Manage pantry <ChevronRight size={13} />
             </span>
           </div>
-          <div style={{ width: 48, height: 48, borderRadius: '1rem', background: 'rgba(52, 211, 153, 0.15)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-            🧺
+          <div className="stat-icon-box" style={{ width: 44, height: 44, borderRadius: '0.85rem', background: 'rgba(52, 211, 153, 0.15)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Package size={22} />
           </div>
         </Link>
 
@@ -376,42 +351,37 @@ export default function DashboardPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            border: '1.5px solid rgba(159, 64, 45, 0.18)',
+            border: '1px solid var(--border-color)',
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           <div>
             <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Pending Groceries
+              Shopping Needed
             </span>
-            <div style={{ fontSize: '1.85rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', marginTop: '0.2rem' }}>
+            <div className="stat-val" style={{ fontSize: '1.85rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', marginTop: '0.2rem' }}>
               {missingItemsList.length}
             </div>
             <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              Open shopping list <ChevronRight size={13} />
+              View list <ChevronRight size={13} />
             </span>
           </div>
-          <div style={{ width: 48, height: 48, borderRadius: '1rem', background: 'rgba(238, 108, 77, 0.15)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-            🛒
+          <div className="stat-icon-box" style={{ width: 44, height: 44, borderRadius: '0.85rem', background: 'rgba(238, 108, 77, 0.15)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ShoppingCart size={22} />
           </div>
         </Link>
       </div>
 
-      {/* 3. Main Center Grid: Today's Timeline & Zero-Waste Chef */}
+      {/* 3. Main Center Grid: Today's Schedule & Cook from Pantry */}
       <div className="bento-grid">
         {/* Left Column (8 cols): Today's Real Cooking Schedule */}
         <section className="bento-main" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <span style={{ fontSize: '1.2rem' }}>🍳</span>
-                <h2 style={{ fontSize: '1.35rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>
-                  Today's Cooking Schedule ({todayDayLabel})
-                </h2>
-              </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, marginTop: '2px' }}>
-                Your scheduled culinary line-up for today.
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <Clock size={18} style={{ color: 'var(--primary)' }} />
+              <h2 style={{ fontSize: '1.35rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>
+                Today's Schedule ({todayDayLabel})
+              </h2>
             </div>
             <Link
               to="/planner"
@@ -427,28 +397,28 @@ export default function DashboardPage() {
             {['BREAKFAST', 'LUNCH', 'DINNER'].map((slot) => {
               const recipe = todayMeals[slot];
               const slotTimeLabel = slot === 'BREAKFAST' ? '8:00 AM' : slot === 'LUNCH' ? '1:00 PM' : '7:30 PM';
-              const slotEmoji = slot === 'BREAKFAST' ? '🥞' : slot === 'LUNCH' ? '🥗' : '🍲';
+              const SlotIcon = slot === 'BREAKFAST' ? Coffee : slot === 'LUNCH' ? Sun : Moon;
 
               if (recipe) {
                 return (
                   <article
                     key={slot}
-                    className="glass-panel"
+                    className="glass-panel today-meal-card planned"
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
                       padding: '1.25rem 1.5rem',
                       borderRadius: '1.15rem',
-                      border: '1.5px solid rgba(159, 64, 45, 0.22)',
+                      border: '1px solid var(--border-color)',
                       boxShadow: '0 4px 14px rgba(0, 0, 0, 0.04)',
                       transition: 'all 0.25s ease'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary)' }}>
-                        {slotEmoji} {slot} • {slotTimeLabel}
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <SlotIcon size={14} /> {slot} • {slotTimeLabel}
                       </span>
-                      <span className="stitch-card-badge" style={{ position: 'static', padding: '2px 8px', fontSize: '0.72rem' }}>
+                      <span className="card-match-badge" style={{ position: 'static', padding: '2px 8px', fontSize: '0.72rem' }}>
                         Planned
                       </span>
                     </div>
@@ -488,7 +458,7 @@ export default function DashboardPage() {
                           gap: '0.3rem'
                         }}
                       >
-                        <ChefHat size={13} /> <span>View Preparation Steps</span>
+                        <ChefHat size={13} /> <span>View Recipe</span>
                       </button>
                     </div>
                   </article>
@@ -499,7 +469,7 @@ export default function DashboardPage() {
               return (
                 <div
                   key={slot}
-                  className="glass-panel"
+                  className="glass-panel today-meal-card unassigned"
                   style={{
                     padding: '1.25rem 1.5rem',
                     borderRadius: '1.15rem',
@@ -513,8 +483,8 @@ export default function DashboardPage() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                    <div style={{ width: 42, height: 42, borderRadius: '0.8rem', background: 'rgba(159, 64, 45, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}>
-                      {slotEmoji}
+                    <div style={{ width: 40, height: 40, borderRadius: '0.8rem', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
+                      <SlotIcon size={18} />
                     </div>
                     <div>
                       <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -533,12 +503,12 @@ export default function DashboardPage() {
                       className="quick-add-pill"
                       style={{ fontSize: '0.8rem', padding: '0.45rem 0.95rem', gap: '0.35rem', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 700 }}
                     >
-                      <Sparkles size={13} /> <span>Plan with AI</span>
+                      <Search size={13} /> <span>Find Recipe</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate('/planner')}
-                      className="stitch-pill-btn"
+                      className="pill-btn"
                       style={{ fontSize: '0.8rem', padding: '0.45rem 0.95rem' }}
                     >
                       <span>Choose Recipe</span>
@@ -550,33 +520,30 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Right Column (4 cols): Zero-Waste Chef (Cook from Pantry) */}
+        {/* Right Column: Cook from Pantry */}
         <aside className="bento-aside" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Zero-Waste Chef Card */}
+          {/* Cook from Pantry Card */}
           <div className="glass-panel" style={{ padding: '1.75rem', borderRadius: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-              <div style={{ width: 34, height: 34, borderRadius: '0.65rem', background: 'rgba(238, 108, 77, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.15rem' }}>
-                ✨
+              <div style={{ width: 34, height: 34, borderRadius: '0.65rem', background: 'rgba(238, 108, 77, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
+                <Package size={18} />
               </div>
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>
-                  Zero-Waste Chef
+                  Cook from Pantry
                 </h3>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Cook immediately with what's in stock
-                </span>
               </div>
             </div>
 
             <p style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', margin: 0 }}>
-              Select available items from your pantry to generate custom recipes with zero waste:
+              Select items from your pantry to find matching recipes:
             </p>
 
             {/* Pantry Selectable Pills */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', maxHeight: '170px', overflowY: 'auto' }}>
               {pantryItems.length === 0 ? (
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  Your pantry is empty. <Link to="/profile" style={{ color: 'var(--primary)' }}>Add ingredients</Link> to use this feature!
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  Your pantry is empty. <Link to="/profile" style={{ color: 'var(--primary)' }}>Add ingredients</Link> to use this feature.
                 </span>
               ) : (
                 pantryItems.map(item => {
@@ -619,14 +586,14 @@ export default function DashboardPage() {
                 gap: '0.45rem'
               }}
             >
-              <Zap size={16} /> <span>Craft Recipes ({selectedPantryIngs.length} items)</span>
+              <Utensils size={16} /> <span>Find Recipes ({selectedPantryIngs.length} items)</span>
             </button>
           </div>
 
-          {/* Quick AI Presets Card */}
+          {/* Quick Filters Card */}
           <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>
-              ⚡ Quick AI Shortcuts
+              Quick Filters
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <button
@@ -635,10 +602,7 @@ export default function DashboardPage() {
                 className="dropdown-item-btn"
                 style={{ padding: '0.55rem 0.75rem', borderRadius: '0.65rem', background: 'var(--surface-container)' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <span>💪</span>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>High-Protein Power Meals</span>
-                </div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>High-Protein Meals</span>
                 <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />
               </button>
 
@@ -648,10 +612,7 @@ export default function DashboardPage() {
                 className="dropdown-item-btn"
                 style={{ padding: '0.55rem 0.75rem', borderRadius: '0.65rem', background: 'var(--surface-container)' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <span>⚡</span>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Under 20 Mins Speed Dinner</span>
-                </div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Under 20 Minutes</span>
                 <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />
               </button>
 
@@ -661,10 +622,7 @@ export default function DashboardPage() {
                 className="dropdown-item-btn"
                 style={{ padding: '0.55rem 0.75rem', borderRadius: '0.65rem', background: 'var(--surface-container)' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <span>🥦</span>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Vegetarian Chef Special</span>
-                </div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Vegetarian Dishes</span>
                 <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />
               </button>
             </div>
@@ -672,22 +630,22 @@ export default function DashboardPage() {
         </aside>
       </div>
 
-      {/* 4. Week-At-A-Glance Mini Planner Strip */}
+      {/* 4. Weekly Schedule Overview */}
       <section className="glass-panel" style={{ padding: '1.75rem 2rem', borderRadius: '1.25rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <CalendarDays size={18} style={{ color: 'var(--primary)' }} />
             <h3 style={{ fontSize: '1.2rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>
-              Week-At-A-Glance Tracker
+              Weekly Schedule
             </h3>
           </div>
           <Link to="/planner" style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>
-            Open Full Weekly Planner →
+            View Planner →
           </Link>
         </div>
 
         {/* 7 Day Strip Grid */}
-        <div style={{
+        <div className="week-glance-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
           gap: '0.85rem'
@@ -712,7 +670,7 @@ export default function DashboardPage() {
                   gap: '0.5rem',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  boxShadow: isToday ? '0 4px 14px rgba(159, 64, 45, 0.18)' : 'none'
+                  boxShadow: isToday ? '0 4px 14px var(--shadow-accent)' : 'none'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -741,7 +699,7 @@ export default function DashboardPage() {
                           width: '8px',
                           height: '8px',
                           borderRadius: '50%',
-                          background: hasSlot ? 'var(--primary)' : 'rgba(159, 64, 45, 0.18)'
+                          background: hasSlot ? 'var(--primary)' : 'var(--primary-light)'
                         }}
                         title={`${slot}: ${hasSlot ? 'Planned' : 'Empty'}`}
                       />
@@ -756,13 +714,13 @@ export default function DashboardPage() {
 
       {/* 5. Bottom Section: Recent Cookbook Creations & Quick Grocery Checklist */}
       <div className="bento-grid">
-        {/* Left (8 cols): Recent Saved Recipes Showcase */}
+        {/* Left: Saved Recipes */}
         <section className="bento-main">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <BookOpen size={18} style={{ color: 'var(--primary)' }} />
               <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>
-                Recent Cookbook Creations
+                Saved Recipes
               </h3>
             </div>
             <Link to="/recipes" style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>
@@ -771,14 +729,14 @@ export default function DashboardPage() {
           </div>
 
           {savedRecipes.length === 0 ? (
-            <div className="glass-panel empty-state" style={{ borderRadius: '1.15rem', padding: '2.5rem 1.5rem', textAlign: 'center' }}>
-              <span style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📖</span>
+            <div className="glass-panel empty-state" style={{ borderRadius: '1.15rem', padding: '2.5rem 1.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <BookMarked size={36} style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }} />
               <p style={{ fontWeight: 600, color: 'var(--on-background)', margin: 0 }}>No saved recipes yet</p>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 1rem 0' }}>
-                Generate dishes in AI Recipe Craft and save them to your permanent cookbook!
+                Save recipes to access them quickly here.
               </p>
               <Link to="/suggest" className="btn btn-primary btn-sm" style={{ padding: '0.5rem 1rem' }}>
-                <Sparkles size={14} /> <span>Create Recipe</span>
+                <Sparkles size={14} /> <span>Find Recipes</span>
               </Link>
             </div>
           ) : (
@@ -791,7 +749,7 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={recipe.id}
-                    className="stitch-recipe-card animate-fade-in-scale"
+                    className="recipe-card"
                     style={{ borderRadius: '1.15rem' }}
                   >
                     <div style={{
@@ -800,7 +758,7 @@ export default function DashboardPage() {
                       justifyContent: 'space-between',
                       alignItems: 'center'
                     }}>
-                      <span className="stitch-card-badge" style={{ position: 'static', fontSize: '0.72rem', padding: '2px 8px' }}>
+                      <span className="card-match-badge" style={{ position: 'static', fontSize: '0.72rem', padding: '2px 8px' }}>
                         {recipe.cuisine || 'Gourmet'}
                       </span>
                       <ChefHat size={15} style={{ color: 'var(--primary)' }} />
@@ -836,7 +794,7 @@ export default function DashboardPage() {
                         onClick={() => setSelectedRecipe(recipe)}
                         style={{ marginTop: 'auto', width: '100%', justifyContent: 'center', borderRadius: '0.65rem', fontWeight: 600 }}
                       >
-                        <ChefHat size={14} /> <span>View Cooking Method</span>
+                        <ChefHat size={14} /> <span>View Recipe</span>
                       </button>
                     </div>
                   </div>
@@ -846,14 +804,14 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Right (4 cols): Smart Grocery Widget */}
+        {/* Right: Grocery List */}
         <aside className="bento-aside" style={{ alignSelf: 'start' }}>
           <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                 <ShoppingCart size={18} style={{ color: 'var(--primary)' }} />
                 <h3 style={{ fontSize: '1.15rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>
-                  Smart Grocery Widget
+                  Grocery List
                 </h3>
               </div>
               <Link to="/shopping" style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>
@@ -862,14 +820,15 @@ export default function DashboardPage() {
             </div>
 
             <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', margin: 0 }}>
-              Auto-detected missing items needed for this week's planned meals:
+              Missing items for this week's meals:
             </p>
 
             {/* Missing items checklist preview */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {missingItemsList.length === 0 ? (
-                <div style={{ padding: '1.5rem 0.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  <span>🎉 No missing items for planned meals!</span>
+                <div style={{ padding: '1.5rem 0.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <CheckCircle2 size={16} style={{ color: 'var(--primary)' }} />
+                  <span>All ingredients in stock for planned meals</span>
                 </div>
               ) : (
                 missingItemsList.slice(0, 4).map((item, idx) => (
@@ -921,7 +880,7 @@ export default function DashboardPage() {
               }}
             >
               <ShoppingCart size={15} />
-              <span>Generate Full Shopping List →</span>
+              <span>Generate Shopping List</span>
             </button>
           </div>
         </aside>

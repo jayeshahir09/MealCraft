@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { register } from '../api/authApi';
 import toast from 'react-hot-toast';
-import { User, Mail, Lock, ArrowRight, Sun, Moon } from 'lucide-react';
+import { User, Mail, Lock, ArrowRight, Sun, Moon, ChefHat } from 'lucide-react';
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
@@ -20,11 +20,13 @@ export default function RegisterPage() {
     if (!form.name || !form.email || !form.password) return toast.error('Please fill in all fields');
     if (form.password.length < 6) return toast.error('Password must be at least 6 characters');
 
+    const cleanName = form.name.trim();
+    const cleanEmail = form.email.trim();
     setLoading(true);
     try {
-      const res = await register(form.name, form.email, form.password);
+      const res = await register(cleanName, cleanEmail, form.password);
       loginSuccess(res.data);
-      toast.success(`Welcome to MealCraft, ${res.data.name}! 🎉`);
+      toast.success(`Welcome to MealCraft, ${res.data.name}`);
       navigate('/dashboard');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed');
@@ -73,7 +75,7 @@ export default function RegisterPage() {
             color: '#ffffff',
             boxShadow: '0 8px 16px rgba(255, 120, 84, 0.3)'
           }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>skillet</span>
+            <ChefHat size={32} strokeWidth={2.2} />
           </div>
           <h1 style={{
             fontSize: '1.85rem',
@@ -86,7 +88,7 @@ export default function RegisterPage() {
             Create Your Account
           </h1>
           <p style={{ fontSize: '0.95rem', color: 'var(--on-surface-variant)', margin: 0 }}>
-            Start crafting gourmet meals with AI today
+            Plan your meals and discover recipes with ease
           </p>
         </div>
 

@@ -1,31 +1,30 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getPreferences, updatePreferences } from '../api/shoppingListApi';
-import { getPantry, addPantryItem, deletePantryItem } from '../api/pantryApi';
+import { getPantry } from '../api/pantryApi';
 import toast from 'react-hot-toast';
-import { User, Plus, X, Save, LogOut } from 'lucide-react';
+import { User, Plus, X, Save, LogOut, Utensils, Globe, ShieldAlert, Archive } from 'lucide-react';
 import PrepTimeSlider from '../components/common/PrepTimeSlider';
 import CustomDropdown from '../components/common/CustomDropdown';
-import IngredientAutocomplete from '../components/common/IngredientAutocomplete';
 import { POPULAR_CUISINES, ALL_DIETS } from '../utils/cuisines';
-import { getUnitsForIngredient, findMasterIngredient, normalizeIngredientName } from '../utils/ingredients';
+import { formatDisplayName } from '../utils/textUtils';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
   const [prefs, setPrefs] = useState({ dietType: 'NONE', allergies: [], preferredCuisine: '', maxCookTimeMinutes: '' });
   const [pantryItems, setPantryItems] = useState([]);
-  const [newItem, setNewItem] = useState({ ingredientName: '', quantity: '', unit: '' });
   const [allergyInput, setAllergyInput] = useState('');
 
   useEffect(() => {
-    getPreferences().then(r => setPrefs(r.data)).catch(() => {});
-    getPantry().then(r => setPantryItems(r.data)).catch(() => {});
+    getPreferences().then(r => setPrefs(r.data)).catch(() => { });
+    getPantry().then(r => setPantryItems(r.data)).catch(() => { });
   }, []);
 
   const handleSavePrefs = async () => {
     try {
       await updatePreferences(prefs);
-      toast.success('Preferences saved! ✅');
+      toast.success('Preferences saved successfully');
     } catch { toast.error('Failed to save preferences'); }
   };
 
@@ -42,47 +41,8 @@ export default function ProfilePage() {
 
   const removeAllergy = (a) => setPrefs(p => ({ ...p, allergies: p.allergies.filter(x => x !== a) }));
 
-  const handleSelectPantryIngredient = (item) => {
-    const name = typeof item === 'string' ? item : item.name;
-    const unitsInfo = getUnitsForIngredient(name);
-    setNewItem(p => ({
-      ...p,
-      ingredientName: name,
-      unit: unitsInfo.defaultUnit || p.unit || ''
-    }));
-  };
-
-  const handleAddPantryItem = async (overrideItem) => {
-    const itemToAdd = overrideItem || newItem;
-    if (!itemToAdd.ingredientName || !itemToAdd.ingredientName.trim()) {
-      return toast.error('Enter ingredient name');
-    }
-    const normalizedName = normalizeIngredientName(itemToAdd.ingredientName);
-    try {
-      const res = await addPantryItem({
-        ingredientName: normalizedName,
-        quantity: itemToAdd.quantity || '',
-        unit: itemToAdd.unit || ''
-      });
-      setPantryItems(p => {
-        const filtered = p.filter(i => i.ingredientName.toLowerCase() !== normalizedName.toLowerCase());
-        return [...filtered, res.data];
-      });
-      setNewItem({ ingredientName: '', quantity: '', unit: '' });
-      toast.success(`Added ${normalizedName} to pantry!`);
-    } catch { toast.error('Failed to add item'); }
-  };
-
-  const handleDeletePantryItem = async (id) => {
-    try {
-      await deletePantryItem(id);
-      setPantryItems(p => p.filter(i => i.id !== id));
-      toast.success('Removed from pantry');
-    } catch { toast.error('Failed to delete item'); }
-  };
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2.25rem', maxWidth: 880, margin: '0 auto', width: '100%' }} className="animate-fade-in-up">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2.25rem', maxWidth: 880, margin: '0 auto', width: '100%' }}>
       <div>
         <h1 style={{
           fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
@@ -95,7 +55,7 @@ export default function ProfilePage() {
           Profile & Preferences
         </h1>
         <p style={{ fontSize: '1.1rem', color: 'var(--on-surface-variant)', margin: 0 }}>
-          Manage your dietary profile, household allergens, and kitchen pantry stock.
+          Manage your dietary preferences, allergens, and pantry stock.
         </p>
       </div>
 
@@ -114,7 +74,9 @@ export default function ProfilePage() {
               {user?.name?.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>{user?.name}</h3>
+              <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>
+                {formatDisplayName(user?.name)}
+              </h3>
               <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: 0, marginTop: '2px' }}>{user?.email}</p>
             </div>
           </div>
@@ -136,11 +98,12 @@ export default function ProfilePage() {
       {/* Dietary Preferences Section */}
       <div className="glass-panel" style={{ padding: '2rem', borderRadius: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
         <div>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.35rem', color: 'var(--on-background)', margin: 0 }}>
-            🥗 Dietary Preferences
+          <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.35rem', color: 'var(--on-background)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <Utensils size={22} style={{ color: 'var(--primary)' }} />
+            <span>Dietary Preferences</span>
           </h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0, marginTop: '4px' }}>
-            Set your default dietary framework, preferred culinary traditions, and allergen restrictions.
+            Set your diet, preferred cuisine, and allergens.
           </p>
         </div>
 
@@ -162,9 +125,9 @@ export default function ProfilePage() {
                   width: 38, height: 38, borderRadius: '0.75rem',
                   background: 'rgba(52, 211, 153, 0.15)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '1.25rem', flexShrink: 0
+                  color: '#059669', flexShrink: 0
                 }}>
-                  🥗
+                  <Utensils size={18} />
                 </div>
                 <div>
                   <label style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--on-background)', margin: 0, display: 'block' }}>
@@ -201,7 +164,7 @@ export default function ProfilePage() {
                   <button
                     key={d.id}
                     type="button"
-                    className={`stitch-pill-btn${prefs.dietType === d.id ? ' active' : ''}`}
+                    className={`pill-btn${prefs.dietType === d.id ? ' active' : ''}`}
                     onClick={() => setPrefs(p => ({ ...p, dietType: d.id }))}
                     style={{
                       width: '100%',
@@ -210,7 +173,6 @@ export default function ProfilePage() {
                       border: prefs.dietType === d.id ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
                     }}
                   >
-                    <span className="pill-emoji">{d.emoji}</span>
                     <span className="pill-label">{d.label}</span>
                   </button>
                 ))}
@@ -222,7 +184,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => setPrefs(p => ({ ...p, dietType: 'NONE' }))}
-                    className="stitch-pill-btn active"
+                    className="pill-btn active"
                     style={{
                       width: '100%',
                       justifyContent: 'center',
@@ -231,7 +193,6 @@ export default function ProfilePage() {
                     }}
                     title="Click to reset to None"
                   >
-                    <span className="pill-emoji">{ALL_DIETS.find(d => d.id === prefs.dietType)?.emoji || '🍽️'}</span>
                     <span className="pill-label">Selected: {ALL_DIETS.find(d => d.id === prefs.dietType)?.label || prefs.dietType}</span>
                     <X size={14} style={{ flexShrink: 0, marginLeft: '0.35rem' }} />
                   </button>
@@ -257,9 +218,9 @@ export default function ProfilePage() {
                   width: 38, height: 38, borderRadius: '0.75rem',
                   background: 'rgba(238, 108, 77, 0.15)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '1.25rem', flexShrink: 0
+                  color: 'var(--primary)', flexShrink: 0
                 }}>
-                  🌎
+                  <Globe size={18} />
                 </div>
                 <div>
                   <label style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--on-background)', margin: 0, display: 'block' }}>
@@ -298,7 +259,7 @@ export default function ProfilePage() {
                     <button
                       key={c.id}
                       type="button"
-                      className={`stitch-pill-btn${isSelected ? ' active' : ''}`}
+                      className={`pill-btn${isSelected ? ' active' : ''}`}
                       onClick={() => setPrefs(p => ({ ...p, preferredCuisine: isSelected ? '' : c.id }))}
                       style={{
                         width: '100%',
@@ -307,7 +268,6 @@ export default function ProfilePage() {
                         border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
                       }}
                     >
-                      <span className="pill-emoji">{c.emoji}</span>
                       <span className="pill-label">{c.label}</span>
                     </button>
                   );
@@ -320,7 +280,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => setPrefs(p => ({ ...p, preferredCuisine: '' }))}
-                    className="stitch-pill-btn active"
+                    className="pill-btn active"
                     style={{
                       width: '100%',
                       justifyContent: 'center',
@@ -329,7 +289,6 @@ export default function ProfilePage() {
                     }}
                     title="Click to reset cuisine"
                   >
-                    <span className="pill-emoji">{POPULAR_CUISINES.find(c => c.id.toLowerCase() === prefs.preferredCuisine.toLowerCase())?.emoji || '🍽️'}</span>
                     <span className="pill-label">Selected: {prefs.preferredCuisine}</span>
                     <X size={14} style={{ flexShrink: 0, marginLeft: '0.35rem' }} />
                   </button>
@@ -367,16 +326,16 @@ export default function ProfilePage() {
                 width: 38, height: 38, borderRadius: '0.75rem',
                 background: 'rgba(239, 68, 68, 0.15)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '1.25rem', flexShrink: 0
+                color: '#dc2626', flexShrink: 0
               }}>
-                🛡️
+                <ShieldAlert size={18} />
               </div>
               <div>
                 <label style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--on-background)', margin: 0, display: 'block' }}>
                   Household Allergens
                 </label>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Always strictly excluded by AI recipe generator
+                  Automatically excluded from all recommended recipes
                 </span>
               </div>
             </div>
@@ -456,132 +415,51 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Pantry Card */}
-      <div className="glass-panel" style={{ padding: '2rem', borderRadius: '1.25rem' }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.35rem', color: 'var(--on-background)', marginBottom: '0.35rem' }}>
-          🧺 My Pantry
-        </h3>
-        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-          Standardized ingredients stored here are auto-subtracted with exact units when generating shopping lists.
-        </p>
-
-        {/* Add new item */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div style={{ flex: '2 1 240px' }}>
-            <IngredientAutocomplete
-              id="pantry-name-input"
-              value={newItem.ingredientName}
-              onChange={(val) => setNewItem(p => ({ ...p, ingredientName: val }))}
-              onSelect={handleSelectPantryIngredient}
-              placeholder="Search master ingredient (e.g. Garlic, Whole Milk)..."
-              showStaples={true}
-              onStapleClick={(staple) => {
-                handleSelectPantryIngredient(staple);
-              }}
-            />
+      {/* Dedicated Pantry Section Link Card */}
+      <div className="glass-panel" style={{ padding: '1.75rem', borderRadius: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{
+            width: 48,
+            height: 48,
+            borderRadius: '0.85rem',
+            background: 'var(--primary-light)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--primary)',
+            flexShrink: 0
+          }}>
+            <Archive size={24} />
           </div>
-          <input
-            type="text"
-            placeholder="Qty (e.g. 500, 2)"
-            value={newItem.quantity}
-            onChange={e => setNewItem(p => ({ ...p, quantity: e.target.value }))}
-            className="form-input"
-            style={{
-              flex: '1 1 80px',
-              borderRadius: '0.75rem',
-              padding: '0.65rem 1rem',
-              fontSize: '0.9rem',
-              height: '42px'
-            }}
-          />
-          <div style={{ flex: '1 1 160px' }}>
-            <CustomDropdown
-              options={getUnitsForIngredient(newItem.ingredientName).options}
-              value={newItem.unit}
-              onChange={(u) => setNewItem(p => ({ ...p, unit: u }))}
-              placeholder="Unit"
-              minWidth="100%"
-            />
+          <div>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.25rem', color: 'var(--on-background)', margin: '0 0 0.25rem 0' }}>
+              Kitchen Pantry
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: 0 }}>
+              {pantryItems.length > 0
+                ? `${pantryItems.length} ${pantryItems.length === 1 ? 'item' : 'items'} currently in stock.`
+                : 'Pantry is currently empty. Add your in-stock groceries and ingredients.'}
+            </p>
           </div>
-          <button
-            className="btn btn-primary"
-            onClick={() => handleAddPantryItem()}
-            style={{
-              padding: '0.65rem 1.25rem',
-              borderRadius: '0.75rem',
-              height: '42px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem'
-            }}
-          >
-            <Plus size={16} /> <span>Add</span>
-          </button>
         </div>
 
-        {/* Pantry list */}
-        <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
-              Current Stock ({pantryItems.length})
-            </span>
-          </div>
-
-          {pantryItems.length === 0 ? (
-            <div className="empty-state" style={{ padding: '2rem 1rem', textAlign: 'center', background: 'var(--surface-container-lowest)', borderRadius: '1rem' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>Your pantry is currently empty. Add staple ingredients above!</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
-              {pantryItems.map(item => {
-                const master = findMasterIngredient(item.ingredientName);
-                return (
-                  <span
-                    key={item.id}
-                    className="active-tag animate-fade-in-up"
-                    style={{
-                      fontSize: '0.88rem',
-                      padding: '0.45rem 0.9rem',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      borderRadius: '2rem',
-                      boxShadow: 'var(--shadow-sm)',
-                      background: 'var(--bg-surface)',
-                      border: '1.5px solid var(--border-color)'
-                    }}
-                  >
-                    <span style={{ fontSize: '1.15rem' }}>{master?.emoji || '🥕'}</span>
-                    <span style={{ textTransform: 'capitalize', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {item.ingredientName}
-                    </span>
-                    {item.quantity && (
-                      <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        padding: '0.15rem 0.5rem',
-                        borderRadius: '1rem',
-                        background: 'var(--primary-light)',
-                        color: 'var(--primary)'
-                      }}>
-                        {item.quantity}{item.unit ? ' ' + item.unit : ''}
-                      </span>
-                    )}
-                    <button
-                      onClick={() => handleDeletePantryItem(item.id)}
-                      className="stitch-tag-remove"
-                      aria-label={`Remove ${item.ingredientName}`}
-                      title={`Remove ${item.ingredientName}`}
-                      style={{ marginLeft: '0.2rem' }}
-                    >
-                      <X size={13} />
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <Link
+          to="/pantry"
+          className="btn btn-primary"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem 1.4rem',
+            borderRadius: '0.75rem',
+            textDecoration: 'none',
+            fontWeight: 700,
+            fontSize: '0.92rem'
+          }}
+        >
+          <Archive size={16} />
+          <span>Manage Pantry Stock →</span>
+        </Link>
       </div>
     </div>
   );

@@ -43,7 +43,7 @@ export default function RecipeSuggestionsPage() {
           setPantryItems(names);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     getSavedRecipes({})
       .then(res => {
@@ -52,7 +52,7 @@ export default function RecipeSuggestionsPage() {
           setSavedRecipeTitles(titles);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     getPreferences()
       .then(res => {
@@ -63,7 +63,7 @@ export default function RecipeSuggestionsPage() {
           if (res.data.maxCookTimeMinutes && !searchParams.get('maxTime')) setMaxTime(res.data.maxCookTimeMinutes);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     getAiCredits()
       .then(res => {
@@ -77,7 +77,7 @@ export default function RecipeSuggestionsPage() {
           }));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Parse URL search params from Quick AI Shortcuts or Pantry actions
@@ -169,14 +169,14 @@ export default function RecipeSuggestionsPage() {
         }));
       }
       if (res.data?.fromCache) {
-        toast('⚡ Served from recipe cache (0 AI credits used)', { icon: '✨' });
+        toast('Loaded from recipe cache');
       }
-      toast.success(`Generated ${res.data?.recipes?.length || 3} gourmet recipes! ✨`);
+      toast.success(`Generated ${res.data?.recipes?.length || 3} recipes`);
       setTimeout(() => {
         document.getElementById('curated-results')?.scrollIntoView({ behavior: 'smooth' });
       }, 150);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'AI service error. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to generate recipes. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -185,14 +185,14 @@ export default function RecipeSuggestionsPage() {
   const handleSave = async (recipe) => {
     const key = recipe.title?.trim().toLowerCase();
     if (savedRecipeTitles.has(key)) {
-      toast('Recipe is already in your saved cookbook! 📖', { icon: '✨' });
+      toast('Recipe is already in your saved cookbook');
       return;
     }
     setSavingRecipeTitle(recipe.title);
     try {
       await saveRecipe(recipe);
       setSavedRecipeTitles(prev => new Set([...prev, key]));
-      toast.success(`"${recipe.title}" saved to your cookbook! 📖`);
+      toast.success(`"${recipe.title}" saved to your cookbook`);
     } catch {
       toast.error('Failed to save recipe');
     } finally {
@@ -212,21 +212,20 @@ export default function RecipeSuggestionsPage() {
           gap: '1rem',
           marginBottom: searchParams.toString() ? '1.5rem' : '2.5rem'
         }}
-        className="animate-fade-in-up"
       >
         <div>
-          <h2 style={{
-            fontSize: 'clamp(2rem, 3.5vw, 3rem)',
+          <h1 style={{
+            fontSize: 'clamp(1.85rem, 3.5vw, 2.75rem)',
             fontFamily: 'var(--font-display)',
             fontWeight: 700,
             color: 'var(--on-background)',
-            marginBottom: '0.5rem',
+            marginBottom: '0.4rem',
             letterSpacing: '-0.02em'
           }}>
-            AI Recipe Craft
-          </h2>
-          <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', margin: 0 }}>
-            Curate your ingredients and set parameters. Our culinary AI will handle the rest.
+            Recipe Suggestions
+          </h1>
+          <p style={{ fontSize: '1rem', color: 'var(--on-surface-variant)', margin: 0 }}>
+            Find recipes based on your ingredients and dietary preferences.
           </p>
         </div>
 
@@ -238,17 +237,16 @@ export default function RecipeSuggestionsPage() {
             fontSize: '0.85rem',
             boxShadow: 'var(--shadow-sm)'
           }}
-          title="Daily AI generation allowance"
+          title="Daily requests remaining"
         >
           <span className="credits-dot" />
-          <Zap size={15} className="credits-icon" />
-          <span>{remaining !== null ? `${remaining}/20` : '20/20'} Daily AI Calls Left</span>
+          <ChefHat size={15} className="credits-icon" />
+          <span>{remaining !== null ? `${remaining}/20` : '20/20'} credits</span>
         </div>
       </div>
 
       {searchParams.toString() && (
         <div
-          className="animate-fade-in-up"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -263,7 +261,7 @@ export default function RecipeSuggestionsPage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>⚡ Preset Applied:</span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>Filters Applied:</span>
             {searchParams.get('diet') && (
               <span className="quick-add-pill" style={{ background: 'var(--primary)', color: '#fff', fontSize: '0.78rem' }}>
                 Diet: {searchParams.get('diet').replace('_', ' ')}
@@ -291,12 +289,13 @@ export default function RecipeSuggestionsPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
         {/* Step 1: Ingredients Section */}
         <section
-          className="glass-panel animate-fade-in-up delay-100"
+          className="glass-panel suggestion-step-section"
           style={{
             borderRadius: '1.25rem',
             padding: '2rem',
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'visible',
+            zIndex: 30
           }}
         >
           {/* Vertical Left Accent Ribbon */}
@@ -320,7 +319,7 @@ export default function RecipeSuggestionsPage() {
               color: 'var(--on-background)',
               margin: 0
             }}>
-              Curate Ingredients
+              Select Ingredients
             </h3>
           </div>
 
@@ -398,33 +397,28 @@ export default function RecipeSuggestionsPage() {
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem' }}>
-              {ingredients.map((ing) => {
-                const master = findMasterIngredient(ing);
-                return (
-                  <span key={ing} className="active-tag animate-fade-in-scale" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.9rem', borderRadius: '2rem' }}>
-                    <span style={{ fontSize: '1.15rem' }}>{master?.emoji || '🥕'}</span>
-                    <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{ing}</span>
-                    <button
-                      onClick={() => removeIngredient(ing)}
-                      className="stitch-tag-remove"
-                      aria-label={`Remove ${ing}`}
-                      title={`Remove ${ing}`}
-                    >
-                      <X size={13} />
-                    </button>
-                  </span>
-                );
-              })}
+              {ingredients.map((ing) => (
+                <span key={ing} className="active-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.9rem', borderRadius: '2rem' }}>
+                  <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{ing}</span>
+                  <button
+                    onClick={() => removeIngredient(ing)}
+                    className="tag-remove-btn"
+                    aria-label={`Remove ${ing}`}
+                    title={`Remove ${ing}`}
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              ))}
               {ingredients.length === 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                  <span>✨</span>
-                  <span>No ingredients added yet. Type an ingredient above or tap quick staples below to build your recipe.</span>
+                  <span>Add ingredients above or choose from common staples below.</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* 3. Quick Master Staples Section */}
+          {/* 3. Common Staples Section */}
           <div style={{ marginBottom: pantryItems.length > 0 ? '1.25rem' : 0 }}>
             <p style={{
               fontSize: '0.8rem',
@@ -438,7 +432,7 @@ export default function RecipeSuggestionsPage() {
               gap: '0.4rem'
             }}>
               <Sparkles size={14} style={{ color: 'var(--primary)' }} />
-              <span>Quick Master Staples</span>
+              <span>Common Staples</span>
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
               {POPULAR_STAPLES.map((stapleName) => {
@@ -464,7 +458,6 @@ export default function RecipeSuggestionsPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    <span>{master?.emoji || '🥕'}</span>
                     <span>{stapleName}</span>
                     {isAdded && <Check size={12} style={{ color: 'var(--primary)' }} />}
                   </button>
@@ -488,7 +481,7 @@ export default function RecipeSuggestionsPage() {
                 gap: '0.45rem'
               }}>
                 <Utensils size={14} style={{ color: 'var(--primary)' }} />
-                <span>My Kitchen Pantry ({pantryItems.length})</span>
+                <span>Pantry Items ({pantryItems.length})</span>
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
                 {pantryItems.map((item) => {
@@ -522,13 +515,14 @@ export default function RecipeSuggestionsPage() {
           )}
         </section>
 
-        {/* Step 2: Refinements & Constraints */}
+        {/* Step 2: Dietary & Cooking Preferences */}
         <section
-          className="glass-panel animate-fade-in-up delay-200"
+          className="glass-panel suggestion-step-section"
           style={{
             borderRadius: '1.25rem',
             padding: '2rem',
-            position: 'relative'
+            position: 'relative',
+            zIndex: 1
           }}
         >
           {/* Vertical Left Accent Ribbon */}
@@ -553,10 +547,10 @@ export default function RecipeSuggestionsPage() {
                 color: 'var(--on-background)',
                 margin: 0
               }}>
-                Refinements & Constraints
+                Dietary & Cooking Preferences
               </h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, marginTop: '2px' }}>
-                Select dietary patterns, regional inspirations, and cooking time bounds.
+                Set your dietary requirements, cuisine preference, and cooking time.
               </p>
             </div>
           </div>
@@ -586,15 +580,15 @@ export default function RecipeSuggestionsPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                   <div style={{
                     width: 38, height: 38, borderRadius: '0.75rem',
-                    background: 'rgba(52, 211, 153, 0.15)',
+                    background: 'var(--primary-light)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1.25rem', flexShrink: 0
+                    color: 'var(--primary)', flexShrink: 0
                   }}>
-                    🥗
+                    <Utensils size={18} />
                   </div>
                   <div>
                     <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--on-background)', margin: 0 }}>
-                      Dietary Profile
+                      Diet
                     </h4>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
                       {ALL_DIETS.find(d => d.id === diet)?.label || 'Select restriction'}
@@ -628,7 +622,7 @@ export default function RecipeSuggestionsPage() {
                       key={d.id}
                       type="button"
                       onClick={() => setDiet(d.id)}
-                      className={`stitch-pill-btn${diet === d.id ? ' active' : ''}`}
+                      className={`pill-btn${diet === d.id ? ' active' : ''}`}
                       style={{
                         width: '100%',
                         justifyContent: 'center',
@@ -636,7 +630,6 @@ export default function RecipeSuggestionsPage() {
                         border: diet === d.id ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
                       }}
                     >
-                      <span className="pill-emoji">{d.emoji}</span>
                       <span className="pill-label">{d.label}</span>
                     </button>
                   ))}
@@ -648,7 +641,7 @@ export default function RecipeSuggestionsPage() {
                     <button
                       type="button"
                       onClick={() => setDiet('NONE')}
-                      className="stitch-pill-btn active"
+                      className="pill-btn active"
                       style={{
                         width: '100%',
                         justifyContent: 'center',
@@ -657,7 +650,6 @@ export default function RecipeSuggestionsPage() {
                       }}
                       title="Click to reset to Any Diet"
                     >
-                      <span className="pill-emoji">{ALL_DIETS.find(d => d.id === diet)?.emoji || '✨'}</span>
                       <span className="pill-label">Selected: {ALL_DIETS.find(d => d.id === diet)?.label || diet}</span>
                       <X size={14} style={{ flexShrink: 0, marginLeft: '0.35rem' }} />
                     </button>
@@ -685,15 +677,14 @@ export default function RecipeSuggestionsPage() {
                     width: 38, height: 38, borderRadius: '0.75rem',
                     background: 'rgba(238, 108, 77, 0.15)',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1.25rem',
-                    lineHeight: 1,
+                    color: 'var(--primary)',
                     flexShrink: 0
                   }}>
-                    🌎
+                    <Globe size={18} />
                   </div>
                   <div>
                     <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--on-background)', margin: 0, lineHeight: 1.2 }}>
-                      Cuisine Inspiration
+                      Cuisine
                     </h4>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
                       {POPULAR_CUISINES.find(c => c.id === cuisine)?.label || cuisine || 'All Cuisines'}
@@ -727,7 +718,7 @@ export default function RecipeSuggestionsPage() {
                       key={c.id}
                       type="button"
                       onClick={() => setCuisine(c.id)}
-                      className={`stitch-pill-btn${cuisine === c.id ? ' active' : ''}`}
+                      className={`pill-btn${cuisine === c.id ? ' active' : ''}`}
                       style={{
                         width: '100%',
                         justifyContent: 'center',
@@ -735,7 +726,6 @@ export default function RecipeSuggestionsPage() {
                         border: cuisine === c.id ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
                       }}
                     >
-                      <span className="pill-emoji">{c.emoji}</span>
                       <span className="pill-label">{c.label}</span>
                     </button>
                   ))}
@@ -747,7 +737,7 @@ export default function RecipeSuggestionsPage() {
                     <button
                       type="button"
                       onClick={() => setCuisine('')}
-                      className="stitch-pill-btn active"
+                      className="pill-btn active"
                       style={{
                         width: '100%',
                         justifyContent: 'center',
@@ -756,7 +746,6 @@ export default function RecipeSuggestionsPage() {
                       }}
                       title="Click to reset to All Cuisines"
                     >
-                      <span className="pill-emoji">{POPULAR_CUISINES.find(c => c.id === cuisine)?.emoji || '🍽️'}</span>
                       <span className="pill-label">Selected: {POPULAR_CUISINES.find(c => c.id === cuisine)?.label || cuisine}</span>
                       <X size={14} style={{ flexShrink: 0, marginLeft: '0.35rem' }} />
                     </button>
@@ -768,7 +757,7 @@ export default function RecipeSuggestionsPage() {
 
           {/* Max Prep Time Slider with Highly Visible Marker & Milestone Ticks */}
           <div style={{
-            borderTop: '1.5px solid rgba(159, 64, 45, 0.18)',
+            borderTop: '1px solid var(--border-color)',
             paddingTop: '1.75rem',
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
@@ -787,44 +776,44 @@ export default function RecipeSuggestionsPage() {
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                 Exclude Allergens
               </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
-                  {allergies.map((allergy) => (
-                    <span
-                      key={allergy}
-                      className="chip chip-red"
-                      style={{
-                        padding: '0.3rem 0.75rem',
-                        fontSize: '0.8rem',
-                        fontWeight: 600
-                      }}
-                    >
-                      <span style={{ textTransform: 'capitalize' }}>{allergy}</span>
-                      <button
-                        onClick={() => removeAllergy(allergy)}
-                        style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    value={allergyInput}
-                    onChange={(e) => setAllergyInput(e.target.value)}
-                    onKeyDown={addAllergy}
-                    placeholder="Add allergen and press Enter..."
-                    className="form-input"
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                {allergies.map((allergy) => (
+                  <span
+                    key={allergy}
+                    className="chip chip-red"
                     style={{
-                      padding: '0.65rem 1rem',
-                      fontSize: '0.9rem',
-                      borderRadius: '0.75rem'
+                      padding: '0.3rem 0.75rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 600
                     }}
-                  />
-                </div>
+                  >
+                    <span style={{ textTransform: 'capitalize' }}>{allergy}</span>
+                    <button
+                      onClick={() => removeAllergy(allergy)}
+                      style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  value={allergyInput}
+                  onChange={(e) => setAllergyInput(e.target.value)}
+                  onKeyDown={addAllergy}
+                  placeholder="Add allergen and press Enter..."
+                  className="form-input"
+                  style={{
+                    padding: '0.65rem 1rem',
+                    fontSize: '0.9rem',
+                    borderRadius: '0.75rem'
+                  }}
+                />
               </div>
             </div>
+          </div>
         </section>
 
         {/* Primary Generate Action CTA with Live Credits Counter */}
@@ -837,38 +826,79 @@ export default function RecipeSuggestionsPage() {
             gap: '1rem',
             paddingTop: '0.5rem'
           }}
-          className="animate-fade-in-up delay-300"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            <Zap size={16} style={{ color: 'var(--primary)' }} />
+            <ChefHat size={16} style={{ color: 'var(--primary)' }} />
             <span>
-              Daily Limit: <strong>{remaining !== null ? `${remaining}/20` : '20/20'}</strong> AI generations available
+              <strong>{remaining !== null ? `${remaining}/20` : '20/20'}</strong> credits remaining today
             </span>
           </div>
 
           <button
             onClick={handleSuggest}
             disabled={loading || ingredients.length === 0}
-            className="stitch-btn-generate"
+            className="btn-generate"
             style={{ width: 'auto' }}
           >
             {loading ? (
               <>
-                <RefreshCw size={20} className="animate-spin" />
-                <span>Crafting Gourmet Dishes...</span>
+                <RefreshCw size={19} className="animate-spin" />
+                <span>Finding Recipes...</span>
               </>
             ) : (
               <>
-                <Sparkles size={20} />
-                <span>Generate 3 Gourmet Recipes</span>
+                <ChefHat size={19} />
+                <span>Find Recipes</span>
               </>
             )}
           </button>
         </div>
 
-        {/* Step 3: Curated Results */}
-        {recipes.length > 0 && (
-          <div id="curated-results" style={{ marginTop: '2.5rem' }} className="animate-fade-in-up delay-400">
+        {/* Step 3: Loading Skeleton or Curated Results */}
+        {loading ? (
+          <div style={{ marginTop: '2.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '1.5rem' }}>
+              <div className="step-badge-3" style={{ background: 'var(--primary-light)', color: 'var(--primary)' }}>
+                <RefreshCw size={16} className="animate-spin" />
+              </div>
+              <h3 style={{
+                fontSize: '1.35rem',
+                fontFamily: 'var(--font-display)',
+                fontWeight: 700,
+                color: 'var(--on-background)',
+                margin: 0
+              }}>
+                Crafting Culinary Recipes...
+              </h3>
+            </div>
+
+            <div className="recipe-results-grid" style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
+              gap: '1.75rem'
+            }}>
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="recipe-card" style={{ padding: '1.5rem', gap: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="skeleton" style={{ width: '90px', height: '24px', borderRadius: '9999px' }} />
+                    <div className="skeleton" style={{ width: '70px', height: '24px', borderRadius: '9999px' }} />
+                  </div>
+                  <div className="skeleton" style={{ width: '85%', height: '28px', marginTop: '0.5rem' }} />
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <div className="skeleton" style={{ width: '75px', height: '18px' }} />
+                    <div className="skeleton" style={{ width: '75px', height: '18px' }} />
+                  </div>
+                  <div className="skeleton" style={{ width: '100%', height: '48px', marginTop: '0.5rem' }} />
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+                    <div className="skeleton" style={{ flex: 1, height: '42px', borderRadius: '0.75rem' }} />
+                    <div className="skeleton" style={{ flex: 1, height: '42px', borderRadius: '0.75rem' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : recipes.length > 0 && (
+          <div id="curated-results" style={{ marginTop: '2.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
                 <div className="step-badge-3">3</div>
@@ -879,19 +909,19 @@ export default function RecipeSuggestionsPage() {
                   color: 'var(--on-background)',
                   margin: 0
                 }}>
-                  Curated Results
+                  Recipe Results
                 </h3>
               </div>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                Instant AI Recommendation
+                {recipes.length} recipes found
               </span>
             </div>
 
             {/* 3-Column Glass Recipe Cards Grid */}
-            <div style={{
+            <div className="recipe-results-grid" style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: '2rem'
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
+              gap: '1.75rem'
             }}>
               {recipes.map((recipe, idx) => {
                 const isFullMatch = !recipe.missingIngredients || recipe.missingIngredients.length === 0;
@@ -900,8 +930,7 @@ export default function RecipeSuggestionsPage() {
                 return (
                   <div
                     key={idx}
-                    className="stitch-recipe-card animate-fade-in-scale"
-                    style={{ animationDelay: `${(idx + 3) * 100}ms` }}
+                    className="recipe-card"
                   >
                     {/* Header Badge Row */}
                     <div style={{
@@ -910,7 +939,7 @@ export default function RecipeSuggestionsPage() {
                       justifyContent: 'space-between',
                       alignItems: 'center'
                     }}>
-                      <div className="stitch-card-badge" style={{ position: 'static' }}>
+                      <div className="card-match-badge" style={{ position: 'static' }}>
                         <CheckCircle2 size={13} style={{ color: 'var(--primary)' }} />
                         <span>{matchBadge}</span>
                       </div>
@@ -964,7 +993,7 @@ export default function RecipeSuggestionsPage() {
                           onClick={() => setSelectedRecipe(recipe)}
                         >
                           <ChefHat size={16} />
-                          <span>View Steps</span>
+                          <span>View Recipe</span>
                         </button>
 
                         {(() => {
@@ -977,18 +1006,18 @@ export default function RecipeSuggestionsPage() {
                               style={{
                                 flex: 1.15,
                                 borderRadius: '0.75rem',
-                                background: isAlreadySaved ? 'rgba(52, 211, 153, 0.15)' : 'var(--primary)',
-                                color: isAlreadySaved ? '#10b981' : '#ffffff',
-                                border: isAlreadySaved ? '1.5px solid rgba(52, 211, 153, 0.45)' : '1px solid rgba(159, 64, 45, 0.5)',
+                                background: isAlreadySaved ? 'var(--success-container)' : 'var(--primary)',
+                                color: isAlreadySaved ? 'var(--badge-fresh)' : '#ffffff',
+                                border: isAlreadySaved ? '1.5px solid var(--badge-fresh)' : '1px solid var(--border-accent)',
                                 fontWeight: 600,
                                 justifyContent: 'center',
                                 padding: '0.65rem 0.85rem',
-                                boxShadow: isAlreadySaved ? 'none' : '0 4px 12px rgba(159, 64, 45, 0.3)',
+                                boxShadow: isAlreadySaved ? 'none' : 'var(--shadow-accent)',
                                 transition: 'all 0.2s ease'
                               }}
                               disabled={isSavingThis}
                               onClick={() => handleSave(recipe)}
-                              title={isAlreadySaved ? "Saved to your unique cookbook" : "Save recipe to your collection"}
+                              title={isAlreadySaved ? "Saved to collection" : "Save recipe"}
                             >
                               {isSavingThis ? (
                                 <>

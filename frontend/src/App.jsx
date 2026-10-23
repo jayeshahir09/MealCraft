@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Sidebar from './components/common/Sidebar';
 import Header from './components/common/Header';
+import BottomNav from './components/common/BottomNav';
 import ProtectedRoute from './components/common/ProtectedRoute';
 
 // Pages
@@ -15,9 +16,9 @@ import RecipeSuggestionsPage from './pages/RecipeSuggestionsPage';
 import SavedRecipesPage from './pages/SavedRecipesPage';
 import MealPlannerPage from './pages/MealPlannerPage';
 import ShoppingListPage from './pages/ShoppingListPage';
+import PantryPage from './pages/PantryPage';
 import ProfilePage from './pages/ProfilePage';
 import AnalyticsPage from './pages/AnalyticsPage';
-import NotificationsPage from './pages/NotificationsPage';
 
 function AppShell() {
   const { isAuthenticated, loading } = useAuth();
@@ -63,7 +64,7 @@ function AppShell() {
 
   if (!isAuthenticated) {
     return (
-      <div key={location.pathname} className="page-enter-animation">
+      <div style={{ width: '100%' }}>
         <Routes location={location}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -82,22 +83,24 @@ function AppShell() {
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}
         />
         <main className="main-content">
-          <div key={location.pathname} className="page-enter-animation">
+          <div style={{ width: '100%' }}>
             <Routes location={location}>
               <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
               <Route path="/suggest" element={<ProtectedRoute><RecipeSuggestionsPage /></ProtectedRoute>} />
               <Route path="/saved" element={<ProtectedRoute><SavedRecipesPage /></ProtectedRoute>} />
               <Route path="/recipes" element={<ProtectedRoute><SavedRecipesPage /></ProtectedRoute>} />
               <Route path="/planner" element={<ProtectedRoute><MealPlannerPage /></ProtectedRoute>} />
+              <Route path="/mealplan" element={<Navigate to="/planner" replace />} />
               <Route path="/shopping" element={<ProtectedRoute><ShoppingListPage /></ProtectedRoute>} />
               <Route path="/shopping-list" element={<ProtectedRoute><ShoppingListPage /></ProtectedRoute>} />
+              <Route path="/pantry" element={<ProtectedRoute><PantryPage /></ProtectedRoute>} />
               <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-              <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </div>
         </main>
+        <BottomNav />
       </div>
     </div>
   );
@@ -110,14 +113,14 @@ function ThemedToaster() {
       position="top-right"
       toastOptions={{
         style: {
-          background: isDark ? '#171b2b' : '#ffffff',
-          color: isDark ? '#f8fafc' : '#1b1c1c',
-          border: isDark ? '1px solid rgba(249,115,22,0.3)' : '1px solid #ddc0ba',
+          background: isDark ? '#0F172A' : '#FFFFFF',
+          color: isDark ? '#F8FAFC' : '#1F1610',
+          border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(120, 80, 50, 0.12)',
           borderRadius: '0.75rem',
           fontSize: '0.875rem',
-          boxShadow: isDark ? '0 10px 25px rgba(0,0,0,0.5)' : '0 10px 25px rgba(0,0,0,0.1)',
+          boxShadow: isDark ? '0 10px 25px rgba(0,0,0,0.5)' : '0 10px 25px rgba(180, 83, 9, 0.08)',
         },
-        success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
+        success: { iconTheme: { primary: isDark ? '#34D399' : '#10B981', secondary: '#fff' } },
         error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
       }}
     />
