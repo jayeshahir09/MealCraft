@@ -24,7 +24,7 @@ export default function RecipeDetailModal({
 
     const originalOverflow = document.body.style.overflow;
     const originalPaddingRight = document.body.style.paddingRight;
-    
+
     // Calculate scrollbar width to prevent layout shift
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = 'hidden';
@@ -74,10 +74,10 @@ export default function RecipeDetailModal({
     const text = ingredientsList.length > 0
       ? ingredientsList.map(i => `${i.quantity} ${i.unit} ${i.name}`.trim()).join('\n')
       : (recipe.usedIngredients || []).join('\n');
-    
+
     navigator.clipboard.writeText(text);
     setCopiedIngredients(true);
-    toast.success('Ingredients copied to clipboard! 📋');
+    toast.success('Ingredients copied to clipboard');
     setTimeout(() => setCopiedIngredients(false), 2500);
   };
 
@@ -103,7 +103,7 @@ export default function RecipeDetailModal({
         }}
       >
         {/* Clean Modal Header without Photos */}
-        <div style={{
+        <div className="recipe-modal-header" style={{
           padding: '1.5rem 1.75rem 1.25rem',
           borderBottom: '1.5px solid var(--border-color)',
           display: 'flex',
@@ -164,10 +164,10 @@ export default function RecipeDetailModal({
 
           <button
             onClick={onClose}
-            className="btn btn-ghost btn-icon"
+            className="btn btn-ghost btn-icon recipe-modal-close-btn"
             style={{
-              width: '36px',
-              height: '36px',
+              width: '40px',
+              height: '40px',
               borderRadius: '50%',
               flexShrink: 0,
               display: 'flex',
@@ -237,21 +237,8 @@ export default function RecipeDetailModal({
             {ingredientsList.length > 0 && (
               <div className="recipe-ingredients-grid">
                 {ingredientsList.map((item, idx) => {
-                  const master = findMasterIngredient(item.name);
                   return (
                     <div key={idx} className="recipe-ingredient-row" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                      <span style={{
-                        fontSize: '1.15rem',
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '0.45rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'var(--surface-container)'
-                      }}>
-                        {master?.emoji || '🥕'}
-                      </span>
                       <span className="ingredient-name" style={{ flex: 1, fontWeight: 600 }}>{item.name}</span>
                       {(item.quantity || item.unit) && (
                         <span className="ingredient-qty" style={{

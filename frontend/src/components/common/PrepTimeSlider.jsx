@@ -8,10 +8,10 @@ export default function PrepTimeSlider({
   step = 5,
   label = 'Max Prep / Cook Time',
   presets = [
-    { val: 15, label: '⚡ 15m Speed' },
-    { val: 30, label: '🍲 30m Standard' },
-    { val: 45, label: '🥘 45m Dinner' },
-    { val: 60, label: '🍷 60m+ Gourmet' }
+    { val: 15, label: '15m Quick' },
+    { val: 30, label: '30m Standard' },
+    { val: 45, label: '45m Dinner' },
+    { val: 60, label: '60m+ Slow Cook' }
   ],
   milestones = [
     { val: 15, label: '15m' },
@@ -66,8 +66,8 @@ export default function PrepTimeSlider({
           transform: 'translateY(-50%)',
           height: '10px',
           borderRadius: '9999px',
-          background: 'rgba(159, 64, 45, 0.12)',
-          border: '1px solid rgba(159, 64, 45, 0.18)',
+          background: 'var(--surface-container-low)',
+          border: '1px solid var(--border-color)',
           boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.08)',
           pointerEvents: 'none'
         }} />
@@ -81,8 +81,8 @@ export default function PrepTimeSlider({
           height: '10px',
           width: `${fillPercent}%`,
           borderRadius: '9999px',
-          background: 'linear-gradient(90deg, #9f402d 0%, #e2725b 50%, #f97316 100%)',
-          boxShadow: '0 0 12px rgba(226, 114, 91, 0.55)',
+          background: 'var(--gradient-primary)',
+          boxShadow: '0 0 12px var(--shadow-accent)',
           pointerEvents: 'none',
           transition: 'width 0.1s ease-out'
         }} />
@@ -152,8 +152,8 @@ export default function PrepTimeSlider({
                 width: isSelected ? '8px' : '5px',
                 height: isSelected ? '8px' : '5px',
                 borderRadius: '50%',
-                background: isSelected ? 'var(--primary)' : isPassed ? 'rgba(159, 64, 45, 0.75)' : 'rgba(159, 64, 45, 0.25)',
-                boxShadow: isSelected ? '0 0 6px rgba(159, 64, 45, 0.8)' : 'none',
+                background: isSelected ? 'var(--primary)' : isPassed ? 'var(--primary)' : 'var(--border-color)',
+                boxShadow: isSelected ? '0 0 6px var(--shadow-accent)' : 'none',
                 alignSelf: tickPercent <= 4 ? 'flex-start' : tickPercent >= 96 ? 'flex-end' : 'center',
                 marginLeft: tickPercent <= 4 ? '3px' : '0',
                 marginRight: tickPercent >= 96 ? '3px' : '0',

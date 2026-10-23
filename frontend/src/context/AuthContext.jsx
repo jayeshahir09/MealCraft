@@ -11,21 +11,30 @@ export function AuthProvider({ children }) {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.name) parsed.name = parsed.name.trim();
+        setToken(storedToken);
+        setUser(parsed);
+      } catch {
+        localStorage.removeItem('user');
+      }
     }
     setLoading(false);
   }, []);
 
   const loginSuccess = (authResponse) => {
-    localStorage.setItem('token', authResponse.token);
-    localStorage.setItem('user', JSON.stringify({
+    const cleanName = (authResponse.name || '').trim();
+    const cleanEmail = (authResponse.email || '').trim().toLowerCase();
+    const userData = {
       id: authResponse.userId,
-      name: authResponse.name,
-      email: authResponse.email,
-    }));
+      name: cleanName,
+      email: cleanEmail,
+    };
+    localStorage.setItem('token', authResponse.token);
+    localStorage.setItem('user', JSON.stringify(userData));
     setToken(authResponse.token);
-    setUser({ id: authResponse.userId, name: authResponse.name, email: authResponse.email });
+    setUser(userData);
   };
 
   const logout = () => {

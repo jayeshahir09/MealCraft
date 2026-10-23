@@ -92,12 +92,7 @@ export default function CustomDropdown({
         aria-expanded={isOpen}
       >
         <div className="dropdown-trigger-content">
-          {selectedOption?.emoji && (
-            <span className="dropdown-trigger-emoji">
-              {selectedOption.emoji}
-            </span>
-          )}
-          {icon && !selectedOption?.emoji && (
+          {icon && (
             <span className="dropdown-trigger-icon">
               {icon}
             </span>
@@ -158,7 +153,7 @@ export default function CustomDropdown({
           >
             {filteredOptions.length === 0 ? (
               <div className="dropdown-no-results">
-                <span>🔍 No matching options</span>
+                <span>No matching options</span>
               </div>
             ) : (
               filteredOptions.map((opt) => {
@@ -178,11 +173,6 @@ export default function CustomDropdown({
                     className={`dropdown-item-btn ${isSelected ? 'selected' : ''}`}
                   >
                     <div className="dropdown-item-main">
-                      {opt.emoji && (
-                        <div className={`dropdown-item-emoji-box ${isSelected ? 'selected' : ''}`}>
-                          <span>{opt.emoji}</span>
-                        </div>
-                      )}
                       <div className="dropdown-item-text">
                         <div className="dropdown-item-title">
                           {opt.label}

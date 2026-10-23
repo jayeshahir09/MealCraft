@@ -1,16 +1,32 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { getAiCredits } from '../../api/recipeApi';
-import { Sun, Moon, Zap, Bell, Menu, LogOut, HelpCircle } from 'lucide-react';
+import { Sun, Moon, ChefHat, Menu, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+const ROUTE_LABELS = {
+  '/dashboard': 'Dashboard',
+  '/suggest': 'Recipes',
+  '/planner': 'Meal Planner',
+  '/saved': 'Saved Recipes',
+  '/recipes': 'Saved Recipes',
+  '/shopping': 'Shopping List',
+  '/shopping-list': 'Shopping List',
+  '/pantry': 'Pantry Management',
+  '/analytics': 'Analytics',
+  '/profile': 'Profile & Settings',
+};
 
 export default function Header({ onToggleSidebar, sidebarOpen }) {
   const { toggleTheme, isDark } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [credits, setCredits] = useState({ remaining: 20, max: 20 });
+
+  const currentPageLabel = ROUTE_LABELS[location.pathname] || 'Dashboard';
 
   useEffect(() => {
     if (!user) return;
@@ -23,7 +39,7 @@ export default function Header({ onToggleSidebar, sidebarOpen }) {
           });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     function handleCreditUpdate(e) {
       if (e.detail) {
@@ -44,9 +60,11 @@ export default function Header({ onToggleSidebar, sidebarOpen }) {
     navigate('/login');
   };
 
+  const userInitial = user?.name?.trim() ? user.name.trim().charAt(0).toUpperCase() : 'U';
+
   return (
     <header className="app-top-header">
-      <div className="header-left">
+      <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
         {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
@@ -57,18 +75,26 @@ export default function Header({ onToggleSidebar, sidebarOpen }) {
             <Menu size={20} className="menu-icon-transition" />
           </button>
         )}
+
+        <div className="header-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <span className="header-breadcrumb-prefix" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>MealCraft</span>
+          <span className="header-breadcrumb-prefix" style={{ fontSize: '0.8rem', color: 'var(--border-color)' }}>/</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--on-background)', fontFamily: 'var(--font-display)' }}>
+            {currentPageLabel}
+          </span>
+        </div>
       </div>
 
       <div className="header-right">
-        {/* Credits Counter Pill */}
+        {/* Credits Indicator Pill */}
         <Link
           to="/suggest"
           className="header-credits-pill"
-          title={`Daily AI Generation Quota: ${credits.remaining}/${credits.max} Credits Available`}
+          title={`${credits.remaining} of ${credits.max} recipe requests remaining today`}
         >
           <span className="credits-dot" />
-          <Zap size={15} className="credits-icon" />
-          <span>{credits.remaining}/{credits.max} Credits</span>
+          <ChefHat size={14} className="credits-icon" />
+          <span>{credits.remaining}/{credits.max} credits</span>
         </Link>
 
         {/* Theme Toggle Button */}
@@ -91,43 +117,10 @@ export default function Header({ onToggleSidebar, sidebarOpen }) {
           )}
         </button>
 
-        {/* Notifications */}
-        <Link
-          to="/notifications"
-          className="notification-btn"
-          title="Notifications & Kitchen Alerts"
-          aria-label="Notifications"
-          style={{ textDecoration: 'none' }}
-        >
-          <Bell size={18} />
-          <span className="notification-indicator" />
-        </Link>
-
-        {/* Help / Guide */}
-        <button
-          className="notification-btn"
-          title="Culinary Assistant Guide"
-          aria-label="Help Guide"
-          onClick={() => toast(() => (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--on-background)' }}>
-                🍳 MealCraft Workflow Guide
-              </div>
-              <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                1. Add staples to your <strong>Kitchen Pantry</strong>.<br />
-                2. Use <strong>Recipe Craft</strong> to generate customized dishes.<br />
-                3. Assign meals to your <strong>Weekly Planner</strong> & generate grocery lists!
-              </div>
-            </div>
-          ), { duration: 6000, icon: '💡' })}
-        >
-          <HelpCircle size={18} />
-        </button>
-
         {/* User Profile Avatar */}
         <Link to="/profile" className="header-avatar-link" title="My Profile">
           <div className="header-avatar">
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            {userInitial}
           </div>
         </Link>
 
@@ -145,4 +138,3 @@ export default function Header({ onToggleSidebar, sidebarOpen }) {
     </header>
   );
 }
-

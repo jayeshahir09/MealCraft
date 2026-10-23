@@ -55,7 +55,6 @@ export default function IngredientAutocomplete({
     const itemObj = findMasterIngredient(normalized) || {
       name: normalized,
       category: 'Custom',
-      emoji: '🥕',
       defaultUnit: ''
     };
     handleSelect(itemObj);
@@ -91,7 +90,7 @@ export default function IngredientAutocomplete({
   };
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', ...style }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', zIndex: isOpen ? 100 : 1, ...style }}>
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
         <input
           id={id}
@@ -128,13 +127,13 @@ export default function IngredientAutocomplete({
         {/* Autocomplete Dropdown */}
         {isOpen && (matches.length > 0 || (query.length > 1 && !exactMatch)) && (
           <div
-            className="glass-panel animate-fade-in-up"
+            className="glass-panel"
             style={{
               position: 'absolute',
               top: 'calc(100% + 6px)',
               left: 0,
               right: 0,
-              zIndex: 9999,
+              zIndex: 99999,
               maxHeight: '300px',
               overflowY: 'auto',
               borderRadius: '1rem',
@@ -160,7 +159,7 @@ export default function IngredientAutocomplete({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '0.6rem 0.85rem',
+                    padding: '0.65rem 0.95rem',
                     borderRadius: '0.7rem',
                     cursor: 'pointer',
                     background: isHighlighted ? 'var(--primary-light)' : 'transparent',
@@ -170,71 +169,47 @@ export default function IngredientAutocomplete({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <div style={{
-                      fontSize: '1.25rem',
-                      width: '34px',
-                      height: '34px',
-                      borderRadius: '0.55rem',
+                      fontWeight: 600,
+                      fontSize: '0.92rem',
+                      color: isHighlighted ? 'var(--primary)' : 'var(--text-primary)',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      background: isHighlighted ? 'var(--bg-surface)' : 'var(--surface-container)'
+                      gap: '0.45rem'
                     }}>
-                      {item.emoji}
+                      <span>{item.name}</span>
+                      {matchedSynonym && matchedSynonym.toLowerCase() !== item.name.toLowerCase() && (
+                        <span style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 500,
+                          padding: '0.1rem 0.4rem',
+                          borderRadius: '0.4rem',
+                          background: 'var(--surface-container-highest)',
+                          color: 'var(--text-muted)'
+                        }}>
+                          matches "{matchedSynonym}"
+                        </span>
+                      )}
                     </div>
-                    <div>
-                      <div style={{
-                        fontWeight: 600,
-                        fontSize: '0.92rem',
-                        color: isHighlighted ? 'var(--primary)' : 'var(--text-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.45rem'
-                      }}>
-                        <span>{item.name}</span>
-                        {matchedSynonym && matchedSynonym.toLowerCase() !== item.name.toLowerCase() && (
-                          <span style={{
-                            fontSize: '0.72rem',
-                            fontWeight: 500,
-                            padding: '0.1rem 0.4rem',
-                            borderRadius: '0.4rem',
-                            background: 'var(--surface-container-highest)',
-                            color: 'var(--text-muted)'
-                          }}>
-                            matches "{matchedSynonym}"
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      padding: '0.2rem 0.55rem',
-                      borderRadius: '1rem',
-                      background: isHighlighted ? 'var(--surface-container-highest)' : 'var(--surface-container)',
-                      color: isHighlighted ? 'var(--primary)' : 'var(--text-secondary)',
-                      border: '1px solid var(--border-color)'
-                    }}>
-                      {item.category}
-                    </span>
-                    {item.defaultUnit && (
-                      <span style={{
-                        fontSize: '0.7rem',
-                        fontWeight: 600,
-                        color: 'var(--text-muted)',
-                        padding: '0.15rem 0.4rem',
-                        borderRadius: '0.35rem',
-                        background: 'var(--surface-container-lowest, rgba(0,0,0,0.04))'
-                      }}>
-                        unit: {item.defaultUnit}
-                      </span>
-                    )}
                   </div>
                 </div>
               );
             })}
+
+            {/* Empty state: typed 2+ chars but nothing matched in master list */}
+            {matches.length === 0 && query.length > 1 && !exactMatch && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+                padding: '0.65rem 0.85rem',
+                color: 'var(--text-muted)',
+                fontSize: '0.82rem',
+                fontStyle: 'italic'
+              }}>
+                <Search size={14} style={{ flexShrink: 0 }} />
+                <span>No standard ingredient found for "<strong style={{ color: 'var(--text-secondary)', fontStyle: 'normal' }}>{value}</strong>" — add it as custom below.</span>
+              </div>
+            )}
 
             {/* Custom entry fallback option */}
             {query.length > 1 && !exactMatch && (
@@ -335,7 +310,6 @@ export default function IngredientAutocomplete({
                     cursor: 'pointer'
                   }}
                 >
-                  <span>{master?.emoji || '🥕'}</span>
                   <span>{stapleName}</span>
                 </button>
               );

@@ -1,17 +1,17 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Sparkles, BookMarked, Calendar,
-  ShoppingCart, BarChart2, User, Bell, X, PlusCircle
+  LayoutDashboard, ChefHat, BookMarked, Calendar,
+  ShoppingCart, BarChart2, User, X, PlusCircle, Archive
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/suggest', icon: Sparkles, label: 'Recipe Craft', badge: 'AI' },
-  { to: '/planner', icon: Calendar, label: 'Planner' },
+  { to: '/suggest', icon: ChefHat, label: 'Recipes' },
+  { to: '/planner', icon: Calendar, label: 'Meal Planner' },
+  { to: '/pantry', icon: Archive, label: 'Pantry' },
   { to: '/saved', icon: BookMarked, label: 'Saved Recipes' },
-  { to: '/shopping', icon: ShoppingCart, label: 'Shopping' },
+  { to: '/shopping', icon: ShoppingCart, label: 'Shopping List' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
-  { to: '/notifications', icon: Bell, label: 'Alerts' },
   { to: '/profile', icon: User, label: 'Profile' },
 ];
 
@@ -32,15 +32,15 @@ export default function Sidebar({ isOpen, onClose }) {
         aria-label="Main Navigation"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Header with Title and Universal Close Button */}
         <div className="sidebar-header">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div>
-              <h1 className="sidebar-title" style={{ color: 'var(--primary)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
-                MealCraft Pro
+              <h1 className="sidebar-title" style={{ color: 'var(--primary)', fontFamily: 'var(--font-display)', fontWeight: 700, margin: 0 }}>
+                MealCraft
               </h1>
-              <p className="sidebar-subtitle" style={{ color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
-                Kitchen Craft
+              <p className="sidebar-subtitle" style={{ color: 'var(--text-secondary)', letterSpacing: '0.05em', margin: 0, marginTop: '2px' }}>
+                Meal Planner & Recipes
               </p>
             </div>
             {onClose && (
@@ -50,11 +50,11 @@ export default function Sidebar({ isOpen, onClose }) {
                   e.stopPropagation();
                   onClose();
                 }}
-                className="mobile-close-btn"
+                className="sidebar-close-btn"
                 aria-label="Close navigation sidebar"
                 title="Close sidebar"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             )}
           </div>
@@ -68,7 +68,10 @@ export default function Sidebar({ isOpen, onClose }) {
               to={to}
               onClick={(e) => {
                 e.stopPropagation();
-                if (onClose) onClose();
+                // Close sidebar on mobile upon navigation
+                if (window.innerWidth <= 768 && onClose) {
+                  onClose();
+                }
               }}
               className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
             >
@@ -80,9 +83,9 @@ export default function Sidebar({ isOpen, onClose }) {
                   fontWeight: 700,
                   padding: '2px 6px',
                   borderRadius: '9999px',
-                  background: 'rgba(159, 64, 45, 0.15)',
+                  background: 'var(--primary-light)',
                   color: 'var(--primary)',
-                  border: '1px solid rgba(159, 64, 45, 0.3)'
+                  border: '1px solid var(--border-accent)'
                 }}>
                   {badge}
                 </span>
@@ -98,7 +101,9 @@ export default function Sidebar({ isOpen, onClose }) {
             onClick={(e) => {
               e.stopPropagation();
               navigate('/suggest');
-              if (onClose) onClose();
+              if (window.innerWidth <= 768 && onClose) {
+                onClose();
+              }
             }}
             className="btn btn-primary"
             style={{
@@ -112,11 +117,10 @@ export default function Sidebar({ isOpen, onClose }) {
             }}
           >
             <PlusCircle size={18} />
-            <span>New AI Recipe</span>
+            <span>New Recipe</span>
           </button>
         </div>
       </aside>
     </>
   );
 }
-
