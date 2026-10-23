@@ -3,7 +3,6 @@ package com.mealplanner.controller;
 import com.mealplanner.dto.ShoppingListDTO;
 import com.mealplanner.service.ShoppingListService;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -11,16 +10,28 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/shopping-list")
-@RequiredArgsConstructor
 public class ShoppingListController {
 
     private final ShoppingListService shoppingListService;
 
+    public ShoppingListController(ShoppingListService shoppingListService) {
+        this.shoppingListService = shoppingListService;
+    }
+
     @PostMapping("/generate/{mealPlanId}")
     public ResponseEntity<ShoppingListDTO> generateShoppingList(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long mealPlanId) {
-        return ResponseEntity.ok(shoppingListService.generateShoppingList(userDetails.getUsername(), mealPlanId));
+            @PathVariable Long mealPlanId,
+            @RequestParam(required = false, defaultValue = "smart") String mode) {
+        return ResponseEntity.ok(shoppingListService.generateShoppingList(userDetails.getUsername(), mealPlanId, mode));
+    }
+
+    @PostMapping("/generate/week/{weekStart}")
+    public ResponseEntity<ShoppingListDTO> generateShoppingListByWeek(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate weekStart,
+            @RequestParam(required = false, defaultValue = "smart") String mode) {
+        return ResponseEntity.ok(shoppingListService.generateShoppingListByWeek(userDetails.getUsername(), weekStart, mode));
     }
 
     @GetMapping("/plan/{mealPlanId}")

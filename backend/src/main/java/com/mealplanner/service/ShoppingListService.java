@@ -4,16 +4,16 @@ import com.mealplanner.dto.ShoppingListDTO;
 import com.mealplanner.entity.*;
 import com.mealplanner.repository.*;
 import com.mealplanner.util.UnitConverter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ShoppingListService {
 
@@ -23,19 +23,186 @@ public class ShoppingListService {
     private final PantryRepository pantryRepository;
     private final UserRepository userRepository;
 
+    public ShoppingListService(ShoppingListRepository shoppingListRepository,
+                               ShoppingListItemRepository shoppingListItemRepository,
+                               MealPlanRepository mealPlanRepository,
+                               PantryRepository pantryRepository,
+                               UserRepository userRepository) {
+        this.shoppingListRepository = shoppingListRepository;
+        this.shoppingListItemRepository = shoppingListItemRepository;
+        this.mealPlanRepository = mealPlanRepository;
+        this.pantryRepository = pantryRepository;
+        this.userRepository = userRepository;
+    }
+
     @Transactional
     public ShoppingListDTO generateShoppingList(String email, Long mealPlanId) {
+        return generateShoppingList(email, mealPlanId, "smart");
+    }
+
+    @Transactional
+    public ShoppingListDTO generateShoppingList(String email, Long mealPlanId, String mode) {
         User user = getUser(email);
-        MealPlan plan = mealPlanRepository.findByIdAndUserId(mealPlanId, user.getId())
+        MealPlan targetPlan = mealPlanRepository.findByIdAndUserId(mealPlanId, user.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Meal plan not found"));
 
-        // Step 1: Collect and aggregate ingredients from every recipe in the plan
-        Map<String, IngredientAggregate> aggregated = new LinkedHashMap<>();
+        return processShoppingListGeneration(user, targetPlan, mode);
+    }
 
-        for (MealPlanEntry entry : plan.getEntries()) {
+    @Transactional
+    public ShoppingListDTO generateShoppingListByWeek(String email, LocalDate weekStart, String mode) {
+        User user = getUser(email);
+        MealPlan targetPlan = mealPlanRepository.findByUserIdAndWeekStartDate(user.getId(), weekStart)
+                .orElseThrow(() -> new IllegalArgumentException("No meal plan found for week starting " + weekStart));
+
+        return processShoppingListGeneration(user, targetPlan, mode);
+    }
+
+    private ShoppingListDTO processShoppingListGeneration(User user, MealPlan targetPlan, String mode) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+        LocalDate currentWeekMonday = today.with(java.time.DayOfWeek.MONDAY);
+        LocalDate nextWeekMonday = currentWeekMonday.plusWeeks(1);
+        LocalDate targetWeekStart = targetPlan.getWeekStartDate();
+        if (targetWeekStart == null) {
+            targetWeekStart = currentWeekMonday;
+        }
+
+        // Enforce: only allowed for this week or next week
+        if (targetWeekStart.isBefore(currentWeekMonday) || targetWeekStart.isAfter(nextWeekMonday)) {
+            throw new IllegalArgumentException("Shopping lists can only be generated for this week or next week.");
+        }
+
+        boolean isCurrentWeek = targetWeekStart.isEqual(currentWeekMonday);
+        boolean isNextWeek = targetWeekStart.isEqual(nextWeekMonday);
+
+        // Step 1: Select relevant entries from the target meal plan
+        List<MealPlanEntry> targetEntries = new ArrayList<>();
+        String summary;
+
+        if (isCurrentWeek) {
+            // Filter to remaining upcoming & uncooked meals of the current week (from now onward)
+            for (MealPlanEntry entry : targetPlan.getEntries()) {
+                if (!entry.isCooked() && isSlotUpcoming(entry.getDayOfWeek(), entry.getMealType(), now)) {
+                    targetEntries.add(entry);
+                }
+            }
+            summary = "Smart list: filtered for upcoming remaining meals from today onward, adjusted for current pantry stock.";
+        } else {
+            // Next week advance planning
+            for (MealPlanEntry entry : targetPlan.getEntries()) {
+                if (!entry.isCooked()) {
+                    targetEntries.add(entry);
+                }
+            }
+            summary = "Advance list for next week: full week plan adjusted for projected pantry after finishing this week's meals.";
+        }
+
+        // Aggregate ingredients needed for the target entries
+        Map<String, IngredientAggregate> aggregated = aggregateIngredients(targetEntries);
+
+        // Step 2: Pantry Deduction with Running Week Consumption Awareness
+        List<PantryItem> userPantry = pantryRepository.findByUserId(user.getId());
+        Map<String, ProjectedPantryItem> projectedPantry = buildProjectedPantry(userPantry);
+
+        if (isNextWeek) {
+            // Mind that remaining meals in the running week will consume pantry items!
+            Optional<MealPlan> currentWeekPlanOpt = mealPlanRepository.findByUserIdAndWeekStartDate(user.getId(), currentWeekMonday);
+            if (currentWeekPlanOpt.isPresent()) {
+                List<MealPlanEntry> currentWeekRemaining = currentWeekPlanOpt.get().getEntries().stream()
+                        .filter(e -> !e.isCooked() && isSlotUpcoming(e.getDayOfWeek(), e.getMealType(), now))
+                        .collect(Collectors.toList());
+
+                Map<String, IngredientAggregate> runningWeekConsumption = aggregateIngredients(currentWeekRemaining);
+
+                // Deduct running week consumption from projected pantry
+                consumeFromProjectedPantry(projectedPantry, runningWeekConsumption);
+            }
+        }
+
+        // Step 3: Deduct the available (or projected) pantry stock from target ingredients
+        deductProjectedPantryFromAggregated(aggregated, projectedPantry);
+
+        // Step 4: Delete old shopping list for this plan if exists
+        List<ShoppingList> existingLists = shoppingListRepository.findByMealPlanId(targetPlan.getId());
+        if (!existingLists.isEmpty()) {
+            shoppingListRepository.deleteAll(existingLists);
+        }
+
+        // Step 5: Build and persist new shopping list
+        ShoppingList shoppingList = ShoppingList.builder()
+                .user(user)
+                .mealPlan(targetPlan)
+                .build();
+
+        List<ShoppingListItem> items = aggregated.values().stream()
+                .map(agg -> {
+                    String resolvedUnit = (agg.unit != null && !agg.unit.isBlank())
+                            ? agg.unit
+                            : UnitConverter.getDefaultUnit(agg.name);
+                    String resolvedQty = (agg.quantity != null && !agg.quantity.isBlank())
+                            ? agg.quantity
+                            : "1";
+                    return ShoppingListItem.builder()
+                            .shoppingList(shoppingList)
+                            .ingredientName(agg.name)
+                            .quantity(resolvedQty)
+                            .unit(resolvedUnit)
+                            .isChecked(false)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        shoppingList.setItems(items);
+        ShoppingList saved = shoppingListRepository.save(shoppingList);
+
+        ShoppingListDTO dto = toDTO(saved);
+        dto.setMode(mode);
+        dto.setSummary(summary);
+        return dto;
+    }
+
+    public static boolean isSlotUpcoming(MealPlanEntry.DayOfWeek slotDay, MealPlanEntry.MealType slotType, LocalDateTime now) {
+        if (slotDay == null || slotType == null) return true;
+        int currentDayOfWeek = now.getDayOfWeek().getValue(); // 1 = Monday, 7 = Sunday
+        int slotDayVal = toDayOfWeekValue(slotDay);
+
+        if (slotDayVal > currentDayOfWeek) {
+            return true; // Future day in this week
+        }
+        if (slotDayVal < currentDayOfWeek) {
+            return false; // Past day in this week
+        }
+
+        // Same day: check meal cutoff hours
+        int hour = now.getHour();
+        return switch (slotType) {
+            case BREAKFAST -> hour < 11;
+            case LUNCH -> hour < 15;
+            case SNACK -> hour < 18;
+            case DINNER -> hour < 22;
+        };
+    }
+
+    private static int toDayOfWeekValue(MealPlanEntry.DayOfWeek day) {
+        return switch (day) {
+            case MON -> 1;
+            case TUE -> 2;
+            case WED -> 3;
+            case THU -> 4;
+            case FRI -> 5;
+            case SAT -> 6;
+            case SUN -> 7;
+        };
+    }
+
+    private Map<String, IngredientAggregate> aggregateIngredients(Collection<MealPlanEntry> entries) {
+        Map<String, IngredientAggregate> aggregated = new LinkedHashMap<>();
+        for (MealPlanEntry entry : entries) {
             Recipe recipe = entry.getRecipe();
-            if (recipe.getIngredients() != null) {
+            if (recipe != null && recipe.getIngredients() != null) {
                 for (Recipe.IngredientItem ingredient : recipe.getIngredients()) {
+                    if (ingredient.getName() == null || ingredient.getName().isBlank()) continue;
                     String key = UnitConverter.normalizeIngredientName(ingredient.getName());
                     aggregated.merge(key, new IngredientAggregate(
                             ingredient.getName(), ingredient.getQuantity(), ingredient.getUnit()),
@@ -43,82 +210,102 @@ public class ShoppingListService {
                 }
             }
         }
+        return aggregated;
+    }
 
-        // Step 2: Accurate Pantry Subtraction with Unit Conversion
-        List<PantryItem> pantryList = pantryRepository.findByUserId(user.getId());
+    private Map<String, ProjectedPantryItem> buildProjectedPantry(List<PantryItem> pantryList) {
+        Map<String, ProjectedPantryItem> map = new HashMap<>();
         for (PantryItem p : pantryList) {
-            String pKey = UnitConverter.normalizeIngredientName(p.getIngredientName());
-            if (aggregated.containsKey(pKey)) {
-                IngredientAggregate req = aggregated.get(pKey);
-                String pQtyStr = p.getQuantity();
-                String pUnit = p.getUnit();
+            String key = UnitConverter.normalizeIngredientName(p.getIngredientName());
+            String pQtyStr = p.getQuantity();
+            String pUnit = p.getUnit();
 
-                // If pantry item has no quantity specified, consider it available in stock
-                if (pQtyStr == null || pQtyStr.isBlank()) {
-                    aggregated.remove(pKey);
-                    continue;
-                }
-
-                double reqQty = UnitConverter.parseQuantity(req.quantity);
-                double pantryQty = UnitConverter.parseQuantity(pQtyStr);
-
-                UnitConverter.UnitCategory reqCat = UnitConverter.getCategory(req.unit);
-                UnitConverter.UnitCategory pCat = UnitConverter.getCategory(pUnit);
-
-                if (reqCat != UnitConverter.UnitCategory.UNKNOWN && reqCat == pCat) {
-                    double reqBase = UnitConverter.toBaseUnit(reqQty, req.unit);
-                    double pantryBase = UnitConverter.toBaseUnit(pantryQty, pUnit);
-
-                    if (pantryBase >= reqBase) {
-                        // Fully satisfied by pantry stock
-                        aggregated.remove(pKey);
-                    } else {
-                        // Partially satisfied: subtract and keep missing remainder
-                        double remainingBase = reqBase - pantryBase;
-                        double remQty = UnitConverter.fromBaseUnit(remainingBase, req.unit);
-                        aggregated.put(pKey, new IngredientAggregate(
-                                req.name, UnitConverter.formatQuantity(remQty), req.unit));
-                    }
-                } else if (req.unit == null || req.unit.isBlank() || pUnit == null || pUnit.isBlank()
-                        || req.unit.equalsIgnoreCase(pUnit)) {
-                    // Direct quantity comparison for discrete/same units
-                    if (pantryQty >= reqQty) {
-                        aggregated.remove(pKey);
-                    } else {
-                        double remQty = reqQty - pantryQty;
-                        aggregated.put(pKey, new IngredientAggregate(
-                                req.name, UnitConverter.formatQuantity(remQty), req.unit));
-                    }
+            if (pQtyStr == null || pQtyStr.isBlank()) {
+                map.put(key, new ProjectedPantryItem(p.getIngredientName(), -1, pUnit, UnitConverter.UnitCategory.UNKNOWN, true));
+            } else {
+                double qty = UnitConverter.parseQuantity(pQtyStr);
+                UnitConverter.UnitCategory cat = UnitConverter.getCategory(pUnit);
+                if (cat != UnitConverter.UnitCategory.UNKNOWN) {
+                    double baseQty = UnitConverter.toBaseUnit(qty, pUnit);
+                    map.put(key, new ProjectedPantryItem(p.getIngredientName(), baseQty, pUnit, cat, false));
                 } else {
-                    // Incompatible units fallback: fulfill from pantry
-                    aggregated.remove(pKey);
+                    map.put(key, new ProjectedPantryItem(p.getIngredientName(), qty, pUnit, UnitConverter.UnitCategory.UNKNOWN, false));
                 }
             }
         }
+        return map;
+    }
 
-        // Step 3: Delete old shopping list for this plan if exists
-        shoppingListRepository.findByMealPlanId(mealPlanId)
-                .ifPresent(shoppingListRepository::delete);
+    private void consumeFromProjectedPantry(Map<String, ProjectedPantryItem> pantry, Map<String, IngredientAggregate> consumption) {
+        for (Map.Entry<String, IngredientAggregate> entry : consumption.entrySet()) {
+            String key = entry.getKey();
+            if (!pantry.containsKey(key)) continue;
 
-        // Step 4: Build and persist new shopping list
-        ShoppingList shoppingList = ShoppingList.builder()
-                .user(user)
-                .mealPlan(plan)
-                .build();
+            ProjectedPantryItem item = pantry.get(key);
+            if (item.isStaple) continue;
 
-        List<ShoppingListItem> items = aggregated.values().stream()
-                .map(agg -> ShoppingListItem.builder()
-                        .shoppingList(shoppingList)
-                        .ingredientName(agg.name)
-                        .quantity(agg.quantity)
-                        .unit(agg.unit)
-                        .isChecked(false)
-                        .build())
-                .collect(Collectors.toList());
+            IngredientAggregate req = entry.getValue();
+            double reqQty = UnitConverter.parseQuantity(req.quantity);
+            UnitConverter.UnitCategory reqCat = UnitConverter.getCategory(req.unit);
 
-        shoppingList.setItems(items);
-        ShoppingList saved = shoppingListRepository.save(shoppingList);
-        return toDTO(saved);
+            if (item.category != UnitConverter.UnitCategory.UNKNOWN && item.category == reqCat) {
+                double reqBase = UnitConverter.toBaseUnit(reqQty, req.unit);
+                item.amount -= reqBase;
+                if (item.amount <= 0) {
+                    pantry.remove(key);
+                }
+            } else if (item.unit == null || item.unit.isBlank() || req.unit == null || req.unit.isBlank()
+                    || item.unit.equalsIgnoreCase(req.unit)) {
+                item.amount -= reqQty;
+                if (item.amount <= 0) {
+                    pantry.remove(key);
+                }
+            }
+        }
+    }
+
+    private void deductProjectedPantryFromAggregated(Map<String, IngredientAggregate> aggregated, Map<String, ProjectedPantryItem> pantry) {
+        for (Map.Entry<String, ProjectedPantryItem> pEntry : pantry.entrySet()) {
+            String key = pEntry.getKey();
+            if (!aggregated.containsKey(key)) continue;
+
+            ProjectedPantryItem pItem = pEntry.getValue();
+            IngredientAggregate req = aggregated.get(key);
+
+            if (pItem.isStaple) {
+                aggregated.remove(key);
+                continue;
+            }
+
+            double reqQty = UnitConverter.parseQuantity(req.quantity);
+            UnitConverter.UnitCategory reqCat = UnitConverter.getCategory(req.unit);
+
+            if (pItem.category != UnitConverter.UnitCategory.UNKNOWN && pItem.category == reqCat) {
+                double reqBase = UnitConverter.toBaseUnit(reqQty, req.unit);
+                if (pItem.amount >= reqBase) {
+                    pItem.amount -= reqBase;
+                    aggregated.remove(key);
+                } else {
+                    double remainingBase = reqBase - pItem.amount;
+                    pItem.amount = 0;
+                    double remQty = UnitConverter.fromBaseUnit(remainingBase, req.unit);
+                    aggregated.put(key, new IngredientAggregate(req.name, UnitConverter.formatQuantity(remQty), req.unit));
+                }
+            } else if (req.unit == null || req.unit.isBlank() || pItem.unit == null || pItem.unit.isBlank()
+                    || req.unit.equalsIgnoreCase(pItem.unit)) {
+                if (pItem.amount >= reqQty) {
+                    pItem.amount -= reqQty;
+                    aggregated.remove(key);
+                } else {
+                    double remQty = reqQty - pItem.amount;
+                    pItem.amount = 0;
+                    aggregated.put(key, new IngredientAggregate(req.name, UnitConverter.formatQuantity(remQty), req.unit));
+                }
+            } else {
+                // Incompatible units fallback: fulfill from pantry
+                aggregated.remove(key);
+            }
+        }
     }
 
     public ShoppingListDTO getShoppingList(String email, Long shoppingListId) {
@@ -130,8 +317,9 @@ public class ShoppingListService {
 
     public ShoppingListDTO getShoppingListByMealPlan(String email, Long mealPlanId) {
         User user = getUser(email);
-        return shoppingListRepository.findByMealPlanId(mealPlanId)
+        return shoppingListRepository.findByMealPlanId(mealPlanId).stream()
                 .filter(l -> l.getUser().getId().equals(user.getId()))
+                .findFirst()
                 .map(this::toDTO)
                 .orElse(null);
     }
@@ -158,9 +346,14 @@ public class ShoppingListService {
         ShoppingList list = shoppingListRepository.findByIdAndUserId(shoppingListId, user.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Shopping list not found"));
 
+        String name = ingredientName.trim();
+        String defaultUnit = UnitConverter.getDefaultUnit(name);
+
         ShoppingListItem item = ShoppingListItem.builder()
                 .shoppingList(list)
-                .ingredientName(ingredientName.trim())
+                .ingredientName(name)
+                .quantity("1")
+                .unit(defaultUnit)
                 .isChecked(false)
                 .build();
         list.getItems().add(item);
@@ -214,4 +407,20 @@ public class ShoppingListService {
     }
 
     private record IngredientAggregate(String name, String quantity, String unit) {}
+
+    private static class ProjectedPantryItem {
+        String name;
+        double amount;
+        String unit;
+        UnitConverter.UnitCategory category;
+        boolean isStaple;
+
+        ProjectedPantryItem(String name, double amount, String unit, UnitConverter.UnitCategory category, boolean isStaple) {
+            this.name = name;
+            this.amount = amount;
+            this.unit = unit;
+            this.category = category;
+            this.isStaple = isStaple;
+        }
+    }
 }

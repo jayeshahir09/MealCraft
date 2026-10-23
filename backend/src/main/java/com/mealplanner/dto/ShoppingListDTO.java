@@ -16,6 +16,8 @@ public class ShoppingListDTO {
     private Long id;
     private Long mealPlanId;
     private LocalDateTime generatedAt;
+    private String mode;
+    private String summary;
     private List<ShoppingListItemDTO> items;
 
     @Data
