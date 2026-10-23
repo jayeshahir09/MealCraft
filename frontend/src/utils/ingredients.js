@@ -4,7 +4,7 @@ export const MASTER_INGREDIENTS = [
   { name: 'Onion', category: 'Produce', emoji: '🧅', unitGroup: 'count', defaultUnit: 'pcs', allowedUnits: ['pcs', 'g', 'kg', 'slices'], synonyms: ['onions', 'yellow onion', 'white onion', 'red onion', 'diced onion'] },
   { name: 'Tomato', category: 'Produce', emoji: '🍅', unitGroup: 'count', defaultUnit: 'pcs', allowedUnits: ['pcs', 'g', 'kg', 'cans', 'cups'], synonyms: ['tomatoes', 'fresh tomato', 'roma tomato'] },
   { name: 'Potato', category: 'Produce', emoji: '🥔', unitGroup: 'weight', defaultUnit: 'g', allowedUnits: ['g', 'kg', 'pcs', 'lbs'], synonyms: ['potatoes', 'russet potato', 'baby potato'] },
-  { name: 'Ginger', category: 'Produce', emoji: '🫚', unitGroup: 'weight', defaultUnit: 'g', allowedUnits: ['g', 'tbsp', 'tsp', 'pcs'], synonyms: ['fresh ginger', 'ginger root', 'minced ginger'] },
+  { name: 'Ginger', category: 'Produce', emoji: '🫛', unitGroup: 'weight', defaultUnit: 'g', allowedUnits: ['g', 'tbsp', 'tsp', 'pcs'], synonyms: ['fresh ginger', 'ginger root', 'minced ginger'] },
   { name: 'Lemon', category: 'Produce', emoji: '🍋', unitGroup: 'count', defaultUnit: 'pcs', allowedUnits: ['pcs', 'tbsp', 'tsp', 'ml'], synonyms: ['lemons', 'lemon juice', 'fresh lemon'] },
   { name: 'Lime', category: 'Produce', emoji: '🍋', unitGroup: 'count', defaultUnit: 'pcs', allowedUnits: ['pcs', 'tbsp', 'tsp', 'ml'], synonyms: ['limes', 'lime juice'] },
   { name: 'Carrot', category: 'Produce', emoji: '🥕', unitGroup: 'count', defaultUnit: 'pcs', allowedUnits: ['pcs', 'g', 'kg', 'cups'], synonyms: ['carrots', 'baby carrots'] },
@@ -54,7 +54,7 @@ export const MASTER_INGREDIENTS = [
   { name: 'Shrimp', category: 'Meat & Seafood', emoji: '🦐', unitGroup: 'weight', defaultUnit: 'g', allowedUnits: ['g', 'kg', 'pcs', 'oz'], synonyms: ['prawns', 'raw shrimp', 'peeled shrimp'] },
   { name: 'Bacon', category: 'Meat & Seafood', emoji: '🥓', unitGroup: 'count', defaultUnit: 'slices', allowedUnits: ['slices', 'g', 'oz'], synonyms: ['bacon strips', 'pancetta'] },
   { name: 'Tuna', category: 'Meat & Seafood', emoji: '🐟', unitGroup: 'count', defaultUnit: 'cans', allowedUnits: ['cans', 'g', 'oz'], synonyms: ['canned tuna', 'tuna fish'] },
-  { name: 'Tofu', category: 'Meat & Seafood', emoji: '🧈', unitGroup: 'weight', defaultUnit: 'g', allowedUnits: ['g', 'pcs', 'oz'], synonyms: ['firm tofu', 'silken tofu'] },
+  { name: 'Tofu', category: 'Plant Protein', emoji: '🫙', unitGroup: 'weight', defaultUnit: 'g', allowedUnits: ['g', 'pcs', 'oz'], synonyms: ['firm tofu', 'silken tofu'] },
 
   // Oils & Condiments
   { name: 'Olive Oil', category: 'Oils & Condiments', emoji: '🫒', unitGroup: 'volume', defaultUnit: 'tbsp', allowedUnits: ['tbsp', 'tsp', 'ml', 'L', 'cups'], synonyms: ['extra virgin olive oil', 'evoo'] },

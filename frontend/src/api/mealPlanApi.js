@@ -11,3 +11,6 @@ export const removeFromSlot = (weekStart, dayOfWeek, mealType) =>
 
 export const clearWeek = (weekStart) =>
   api.delete(`/mealplans/${weekStart}/clear`);
+
+export const toggleSlotCooked = (weekStart, dayOfWeek, mealType, cooked) =>
+  api.post(`/mealplans/${weekStart}/slot/cook`, { dayOfWeek, mealType, cooked });

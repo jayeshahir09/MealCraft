@@ -1,7 +1,10 @@
 import api from './axiosInstance';
 
-export const generateShoppingList = (mealPlanId) =>
-  api.post(`/shopping-list/generate/${mealPlanId}`);
+export const generateShoppingList = (mealPlanId, mode = 'smart') =>
+  api.post(`/shopping-list/generate/${mealPlanId}`, null, { params: { mode } });
+
+export const generateShoppingListByWeek = (weekStart, mode = 'smart') =>
+  api.post(`/shopping-list/generate/week/${weekStart}`, null, { params: { mode } });
 
 export const getShoppingListByPlan = (mealPlanId) =>
   api.get(`/shopping-list/plan/${mealPlanId}`);
