@@ -142,4 +142,40 @@ class MealPlanControllerTest {
 
         verify(mealPlanService, times(1)).clearWeek("chef@example.com", weekStart);
     }
+
+    @Test
+    @WithMockUser(username = "chef@example.com")
+    @DisplayName("POST /api/mealplans/{weekStart}/slot/cook - toggles slot cooked status")
+    void testToggleCooked() throws Exception {
+        LocalDate weekStart = LocalDate.of(2026, 10, 5);
+        Map<String, Object> payload = Map.of(
+                "dayOfWeek", "MON",
+                "mealType", "DINNER",
+                "cooked", true
+        );
+
+        MealPlanDTO dto = MealPlanDTO.builder()
+                .id(1L)
+                .weekStartDate(weekStart)
+                .entries(List.of(
+                        MealPlanDTO.MealPlanEntryDTO.builder()
+                                .id(10L)
+                                .recipeId(42L)
+                                .recipeTitle("Salmon Bowl")
+                                .dayOfWeek("MON")
+                                .mealType("DINNER")
+                                .isCooked(true)
+                                .build()
+                ))
+                .build();
+
+        when(mealPlanService.toggleSlotCooked(eq("chef@example.com"), eq(weekStart), eq("MON"), eq("DINNER"), eq(true)))
+                .thenReturn(dto);
+
+        mockMvc.perform(post("/api/mealplans/2026-10-05/slot/cook")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entries[0].isCooked").value(true));
+    }
 }

@@ -36,6 +36,9 @@ class AnalyticsServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private PantryService pantryService;
+
     @InjectMocks
     private AnalyticsService analyticsService;
 
@@ -59,7 +62,7 @@ class AnalyticsServiceTest {
     }
 
     @Test
-    @DisplayName("logCookedRecipe - saves cooking history record")
+    @DisplayName("logCookedRecipe - saves cooking history record and deducts pantry ingredients")
     void testLogCookedRecipe() {
         when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
         when(recipeRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(testRecipe));
@@ -79,6 +82,7 @@ class AnalyticsServiceTest {
         assertNotNull(result);
         assertEquals(99L, result.get("id"));
         assertNotNull(result.get("cookedAt"));
+        verify(pantryService, times(1)).deductRecipeIngredients(1L, testRecipe);
     }
 
     @Test

@@ -99,4 +99,29 @@ class UnitConverterTest {
         assertEquals("0", UnitConverter.formatQuantity(0.0));
         assertEquals("0", UnitConverter.formatQuantity(-1.0));
     }
+
+    @ParameterizedTest
+    @CsvSource({
+            "Garlic Cloves, cloves",
+            "Onions, pcs",
+            "Tomato, pcs",
+            "Potatoes, g",
+            "Milk, ml",
+            "Chicken Breast, g",
+            "Olive Oil, tbsp",
+            "Salt, tsp",
+            "Coriander Leaves, bunches",
+            "Exotic Dragonfruit, pcs"
+    })
+    @DisplayName("Should assign smart default units based on ingredient name")
+    void testGetDefaultUnit(String ingredientName, String expectedUnit) {
+        assertEquals(expectedUnit, UnitConverter.getDefaultUnit(ingredientName));
+    }
+
+    @Test
+    @DisplayName("Should fallback to pcs for null or blank ingredient name")
+    void testGetDefaultUnitNullOrBlank() {
+        assertEquals("pcs", UnitConverter.getDefaultUnit(null));
+        assertEquals("pcs", UnitConverter.getDefaultUnit("   "));
+    }
 }

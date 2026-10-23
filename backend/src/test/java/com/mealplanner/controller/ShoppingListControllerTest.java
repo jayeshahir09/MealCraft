@@ -66,6 +66,7 @@ class ShoppingListControllerTest {
                 ))
                 .build();
 
+        when(shoppingListService.generateShoppingList(org.mockito.ArgumentMatchers.eq("chef@example.com"), org.mockito.ArgumentMatchers.eq(10L), org.mockito.ArgumentMatchers.anyString())).thenReturn(dto);
         when(shoppingListService.generateShoppingList("chef@example.com", 10L)).thenReturn(dto);
 
         mockMvc.perform(post("/api/shopping-list/generate/10"))
@@ -148,5 +149,32 @@ class ShoppingListControllerTest {
                         .content(objectMapper.writeValueAsString(Map.of("ingredientName", "Honey"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].ingredientName").value("Honey"));
+    }
+
+    @Test
+    @WithMockUser(username = "chef@example.com")
+    @DisplayName("POST /api/shopping-list/generate/week/{weekStart} - generates list by week")
+    void testGenerateShoppingListByWeek() throws Exception {
+        java.time.LocalDate weekStart = java.time.LocalDate.of(2026, 10, 5);
+        ShoppingListDTO dto = ShoppingListDTO.builder()
+                .id(10L)
+                .generatedAt(LocalDateTime.now())
+                .items(List.of(
+                        ShoppingListDTO.ShoppingListItemDTO.builder()
+                                .id(200L)
+                                .ingredientName("Olive Oil")
+                                .quantity("1")
+                                .unit("tbsp")
+                                .build()
+                ))
+                .build();
+
+        when(shoppingListService.generateShoppingListByWeek("chef@example.com", weekStart, "smart")).thenReturn(dto);
+
+        mockMvc.perform(post("/api/shopping-list/generate/week/2026-10-05")
+                        .param("mode", "smart"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.items[0].ingredientName").value("Olive Oil"));
     }
 }

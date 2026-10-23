@@ -117,4 +117,118 @@ class PantryServiceTest {
         assertDoesNotThrow(() -> pantryService.deletePantryItem("john@example.com", 7L));
         verify(pantryRepository, times(1)).delete(item);
     }
+
+    @Test
+    @DisplayName("deductRecipeIngredients - does nothing when recipe or ingredients are null/empty")
+    void testDeductRecipeIngredientsEmptyOrNull() {
+        assertDoesNotThrow(() -> pantryService.deductRecipeIngredients(1L, null));
+
+        com.mealplanner.entity.Recipe emptyRecipe = com.mealplanner.entity.Recipe.builder()
+                .ingredients(List.of())
+                .build();
+        assertDoesNotThrow(() -> pantryService.deductRecipeIngredients(1L, emptyRecipe));
+        verify(pantryRepository, never()).findByUserId(any());
+    }
+
+    @Test
+    @DisplayName("deductRecipeIngredients - partially deducts convertible units when pantry has more")
+    void testDeductRecipeIngredientsPartialConvertible() {
+        // Pantry: 1 kg Tomato (1000g)
+        PantryItem tomatoItem = PantryItem.builder()
+                .id(1L)
+                .ingredientName("Tomato")
+                .quantity("1")
+                .unit("kg")
+                .build();
+
+        when(pantryRepository.findByUserId(1L)).thenReturn(List.of(tomatoItem));
+
+        // Recipe needs 400 g Tomatoes -> 600g = 0.6 kg remaining
+        com.mealplanner.entity.Recipe recipe = com.mealplanner.entity.Recipe.builder()
+                .ingredients(List.of(new com.mealplanner.entity.Recipe.IngredientItem("Tomatoes", "400", "g")))
+                .build();
+
+        pantryService.deductRecipeIngredients(1L, recipe);
+
+        assertEquals("0.6", tomatoItem.getQuantity());
+        verify(pantryRepository, times(1)).save(tomatoItem);
+        verify(pantryRepository, never()).delete(tomatoItem);
+    }
+
+    @Test
+    @DisplayName("deductRecipeIngredients - deletes item when requirement meets or exceeds pantry stock")
+    void testDeductRecipeIngredientsFullyConsumed() {
+        // Pantry: 300 g Pasta
+        PantryItem pastaItem = PantryItem.builder()
+                .id(2L)
+                .ingredientName("Pasta")
+                .quantity("300")
+                .unit("g")
+                .build();
+
+        when(pantryRepository.findByUserId(1L)).thenReturn(List.of(pastaItem));
+
+        // Recipe needs 500 g Pasta
+        com.mealplanner.entity.Recipe recipe = com.mealplanner.entity.Recipe.builder()
+                .ingredients(List.of(new com.mealplanner.entity.Recipe.IngredientItem("Pasta", "500", "g")))
+                .build();
+
+        pantryService.deductRecipeIngredients(1L, recipe);
+
+        verify(pantryRepository, times(1)).delete(pastaItem);
+        verify(pantryRepository, never()).save(pastaItem);
+    }
+
+    @Test
+    @DisplayName("deductRecipeIngredients - deducts discrete count items correctly")
+    void testDeductRecipeIngredientsDiscrete() {
+        // Pantry: 6 pcs Eggs
+        PantryItem eggItem = PantryItem.builder()
+                .id(3L)
+                .ingredientName("Egg")
+                .quantity("6")
+                .unit("pcs")
+                .build();
+
+        when(pantryRepository.findByUserId(1L)).thenReturn(List.of(eggItem));
+
+        // Recipe needs 2 pcs Eggs -> 4 remaining
+        com.mealplanner.entity.Recipe recipe = com.mealplanner.entity.Recipe.builder()
+                .ingredients(List.of(new com.mealplanner.entity.Recipe.IngredientItem("Egg", "2", "pcs")))
+                .build();
+
+        pantryService.deductRecipeIngredients(1L, recipe);
+
+        assertEquals("4", eggItem.getQuantity());
+        verify(pantryRepository, times(1)).save(eggItem);
+    }
+
+    @Test
+    @DisplayName("clearPantry - deletes all items belonging to user")
+    void testClearPantry() {
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
+        List<PantryItem> items = List.of(
+                PantryItem.builder().id(1L).build(),
+                PantryItem.builder().id(2L).build()
+        );
+        when(pantryRepository.findByUserId(1L)).thenReturn(items);
+
+        pantryService.clearPantry("john@example.com");
+
+        verify(pantryRepository, times(1)).deleteAll(items);
+    }
+
+    @Test
+    @DisplayName("getPantryIngredientNames - retrieves all ingredient names")
+    void testGetPantryIngredientNames() {
+        List<PantryItem> items = List.of(
+                PantryItem.builder().id(1L).ingredientName("garlic").build(),
+                PantryItem.builder().id(2L).ingredientName("milk").build()
+        );
+        when(pantryRepository.findByUserId(1L)).thenReturn(items);
+
+        List<String> names = pantryService.getPantryIngredientNames(1L);
+
+        assertEquals(List.of("garlic", "milk"), names);
+    }
 }

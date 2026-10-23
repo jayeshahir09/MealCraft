@@ -5,6 +5,9 @@ import com.mealplanner.entity.MealPlan;
 import com.mealplanner.entity.MealPlanEntry;
 import com.mealplanner.entity.Recipe;
 import com.mealplanner.entity.User;
+import com.mealplanner.entity.CookingHistory;
+import com.mealplanner.repository.CookingHistoryRepository;
+import com.mealplanner.repository.MealPlanEntryRepository;
 import com.mealplanner.repository.MealPlanRepository;
 import com.mealplanner.repository.RecipeRepository;
 import com.mealplanner.repository.UserRepository;
@@ -32,10 +35,19 @@ class MealPlanServiceTest {
     private MealPlanRepository mealPlanRepository;
 
     @Mock
+    private MealPlanEntryRepository mealPlanEntryRepository;
+
+    @Mock
     private RecipeRepository recipeRepository;
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private PantryService pantryService;
+
+    @Mock
+    private CookingHistoryRepository cookingHistoryRepository;
 
     @InjectMocks
     private MealPlanService mealPlanService;
@@ -153,5 +165,100 @@ class MealPlanServiceTest {
 
         assertTrue(plan.getEntries().isEmpty());
         verify(mealPlanRepository).save(plan);
+    }
+
+    @Test
+    @DisplayName("toggleSlotCooked - marks uncooked slot as cooked, deducts pantry ingredients and logs cooking history")
+    void testToggleSlotCookedMarkCooked() {
+        MealPlan plan = MealPlan.builder()
+                .id(5L)
+                .user(testUser)
+                .weekStartDate(weekStart)
+                .entries(new ArrayList<>())
+                .build();
+
+        MealPlanEntry entry = MealPlanEntry.builder()
+                .id(20L)
+                .mealPlan(plan)
+                .recipe(testRecipe)
+                .dayOfWeek(MealPlanEntry.DayOfWeek.MON)
+                .mealType(MealPlanEntry.MealType.DINNER)
+                .isCooked(false)
+                .build();
+        plan.getEntries().add(entry);
+
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
+        when(mealPlanRepository.findByUserIdAndWeekStartDate(1L, weekStart)).thenReturn(Optional.of(plan));
+        when(mealPlanRepository.save(any(MealPlan.class))).thenAnswer(i -> i.getArgument(0));
+
+        MealPlanDTO dto = mealPlanService.toggleSlotCooked("john@example.com", weekStart, "MON", "DINNER", true);
+
+        assertNotNull(dto);
+        assertTrue(entry.isCooked());
+        assertNotNull(entry.getCookedAt());
+        verify(pantryService, times(1)).deductRecipeIngredients(1L, testRecipe);
+        verify(cookingHistoryRepository, times(1)).save(any(CookingHistory.class));
+        verify(mealPlanRepository, times(1)).save(plan);
+    }
+
+    @Test
+    @DisplayName("toggleSlotCooked - unmarks cooked slot without deducting ingredients or logging history")
+    void testToggleSlotCookedMarkUncooked() {
+        MealPlan plan = MealPlan.builder()
+                .id(5L)
+                .user(testUser)
+                .weekStartDate(weekStart)
+                .entries(new ArrayList<>())
+                .build();
+
+        MealPlanEntry entry = MealPlanEntry.builder()
+                .id(20L)
+                .mealPlan(plan)
+                .recipe(testRecipe)
+                .dayOfWeek(MealPlanEntry.DayOfWeek.MON)
+                .mealType(MealPlanEntry.MealType.DINNER)
+                .isCooked(true)
+                .cookedAt(java.time.LocalDateTime.now())
+                .build();
+        plan.getEntries().add(entry);
+
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
+        when(mealPlanRepository.findByUserIdAndWeekStartDate(1L, weekStart)).thenReturn(Optional.of(plan));
+        when(mealPlanRepository.save(any(MealPlan.class))).thenAnswer(i -> i.getArgument(0));
+
+        MealPlanDTO dto = mealPlanService.toggleSlotCooked("john@example.com", weekStart, "MON", "DINNER", false);
+
+        assertNotNull(dto);
+        assertFalse(entry.isCooked());
+        assertNull(entry.getCookedAt());
+        verify(pantryService, never()).deductRecipeIngredients(any(), any());
+        verify(cookingHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("toggleSlotCooked - throws exception when meal plan not found")
+    void testToggleSlotCookedPlanNotFound() {
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
+        when(mealPlanRepository.findByUserIdAndWeekStartDate(1L, weekStart)).thenReturn(Optional.empty());
+
+        assertThrows(IllegalArgumentException.class, () ->
+                mealPlanService.toggleSlotCooked("john@example.com", weekStart, "MON", "DINNER", true));
+    }
+
+    @Test
+    @DisplayName("toggleSlotCooked - throws exception when slot not found in meal plan")
+    void testToggleSlotCookedSlotNotFound() {
+        MealPlan plan = MealPlan.builder()
+                .id(5L)
+                .user(testUser)
+                .weekStartDate(weekStart)
+                .entries(new ArrayList<>())
+                .build();
+
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
+        when(mealPlanRepository.findByUserIdAndWeekStartDate(1L, weekStart)).thenReturn(Optional.of(plan));
+
+        assertThrows(IllegalArgumentException.class, () ->
+                mealPlanService.toggleSlotCooked("john@example.com", weekStart, "WED", "LUNCH", true));
     }
 }
