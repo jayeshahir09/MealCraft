@@ -5,18 +5,20 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mealplanner.dto.AiRecipeDTO;
 import com.mealplanner.exception.AIServiceException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class RecipeResponseParser {
 
     private final ObjectMapper objectMapper;
+
+    public RecipeResponseParser(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     public List<AiRecipeDTO> parse(String rawResponse) {
         String cleaned = extractJson(rawResponse);
@@ -25,7 +27,7 @@ public class RecipeResponseParser {
             if (recipes == null || recipes.isEmpty()) {
                 throw new AIServiceException("LLM returned empty recipe list");
             }
-            // Validate each recipe has required fields
+            // Validate and polish each recipe
             for (AiRecipeDTO recipe : recipes) {
                 if (recipe.getTitle() == null || recipe.getTitle().isBlank()) {
                     throw new AIServiceException("Recipe missing title in LLM response");
@@ -33,12 +35,31 @@ public class RecipeResponseParser {
                 if (recipe.getSteps() == null || recipe.getSteps().isEmpty()) {
                     throw new AIServiceException("Recipe missing steps in LLM response");
                 }
+                recipe.setSteps(cleanSteps(recipe.getSteps()));
             }
             return recipes;
         } catch (JsonProcessingException e) {
             log.error("Failed to parse LLM JSON response: {}", cleaned, e);
             throw new AIServiceException("Failed to parse recipe suggestions from AI response");
         }
+    }
+
+    private List<String> cleanSteps(List<String> rawSteps) {
+        if (rawSteps == null) return List.of();
+        return rawSteps.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .map(s -> {
+                    String clean = s.trim();
+                    clean = clean.replaceFirst("^(?i)(step\\s*\\d+[:.]?\\s*|\\d+[.)-]\\s*)", "").trim();
+                    if (clean.isEmpty()) return "";
+                    clean = Character.toUpperCase(clean.charAt(0)) + clean.substring(1);
+                    if (!clean.endsWith(".") && !clean.endsWith("!") && !clean.endsWith("?")) {
+                        clean = clean + ".";
+                    }
+                    return clean;
+                })
+                .filter(s -> !s.isBlank())
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private String extractJson(String rawResponse) {

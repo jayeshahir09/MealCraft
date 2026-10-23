@@ -8,14 +8,12 @@ import com.mealplanner.entity.UserPreference;
 import com.mealplanner.repository.UserRepository;
 import com.mealplanner.repository.UserPreferenceRepository;
 import com.mealplanner.security.JwtUtil;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -23,15 +21,28 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
+    public AuthService(UserRepository userRepository,
+                       UserPreferenceRepository userPreferenceRepository,
+                       PasswordEncoder passwordEncoder,
+                       JwtUtil jwtUtil) {
+        this.userRepository = userRepository;
+        this.userPreferenceRepository = userPreferenceRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
+    }
+
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email already registered: " + request.getEmail());
+        String cleanEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+        String cleanName = request.getName() != null ? request.getName().trim() : "";
+
+        if (userRepository.existsByEmail(cleanEmail)) {
+            throw new IllegalArgumentException("Email already registered: " + cleanEmail);
         }
 
         User user = User.builder()
-                .name(request.getName())
-                .email(request.getEmail())
+                .name(cleanName)
+                .email(cleanEmail)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .build();
 
@@ -55,7 +66,8 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
+        String cleanEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+        User user = userRepository.findByEmail(cleanEmail)
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {

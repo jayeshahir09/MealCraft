@@ -6,7 +6,6 @@ import com.mealplanner.dto.RecipeSuggestionRequest;
 import com.mealplanner.dto.RecipeSuggestionResponse;
 import com.mealplanner.service.AIRecipeService;
 import com.mealplanner.service.RecipeService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,11 +15,15 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/recipes")
-@RequiredArgsConstructor
 public class RecipeController {
 
     private final RecipeService recipeService;
     private final AIRecipeService aiRecipeService;
+
+    public RecipeController(RecipeService recipeService, AIRecipeService aiRecipeService) {
+        this.recipeService = recipeService;
+        this.aiRecipeService = aiRecipeService;
+    }
 
     @PostMapping("/suggest")
     public ResponseEntity<RecipeSuggestionResponse> suggestRecipes(

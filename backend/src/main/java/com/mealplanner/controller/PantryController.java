@@ -2,7 +2,6 @@ package com.mealplanner.controller;
 
 import com.mealplanner.dto.PantryItemDTO;
 import com.mealplanner.service.PantryService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,10 +11,13 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/pantry")
-@RequiredArgsConstructor
 public class PantryController {
 
     private final PantryService pantryService;
+
+    public PantryController(PantryService pantryService) {
+        this.pantryService = pantryService;
+    }
 
     @GetMapping
     public ResponseEntity<List<PantryItemDTO>> getPantry(@AuthenticationPrincipal UserDetails userDetails) {

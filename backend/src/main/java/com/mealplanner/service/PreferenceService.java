@@ -5,16 +5,19 @@ import com.mealplanner.entity.User;
 import com.mealplanner.entity.UserPreference;
 import com.mealplanner.repository.UserPreferenceRepository;
 import com.mealplanner.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class PreferenceService {
 
     private final UserPreferenceRepository preferenceRepository;
     private final UserRepository userRepository;
+
+    public PreferenceService(UserPreferenceRepository preferenceRepository, UserRepository userRepository) {
+        this.preferenceRepository = preferenceRepository;
+        this.userRepository = userRepository;
+    }
 
     public PreferenceDTO getPreferences(String email) {
         User user = getUser(email);

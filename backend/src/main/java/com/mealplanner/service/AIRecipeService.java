@@ -13,7 +13,6 @@ import com.mealplanner.exception.AIServiceException;
 import com.mealplanner.exception.RateLimitExceededException;
 import com.mealplanner.repository.AiUsageLogRepository;
 import com.mealplanner.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
@@ -26,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AIRecipeService {
 
@@ -37,6 +35,22 @@ public class AIRecipeService {
     private final UserRepository userRepository;
     private final CacheManager cacheManager;
     private final RecipeCacheKeyGenerator recipeCacheKeyGenerator;
+
+    public AIRecipeService(LLMClient llmClient,
+                           PromptBuilder promptBuilder,
+                           RecipeResponseParser responseParser,
+                           AiUsageLogRepository aiUsageLogRepository,
+                           UserRepository userRepository,
+                           CacheManager cacheManager,
+                           RecipeCacheKeyGenerator recipeCacheKeyGenerator) {
+        this.llmClient = llmClient;
+        this.promptBuilder = promptBuilder;
+        this.responseParser = responseParser;
+        this.aiUsageLogRepository = aiUsageLogRepository;
+        this.userRepository = userRepository;
+        this.cacheManager = cacheManager;
+        this.recipeCacheKeyGenerator = recipeCacheKeyGenerator;
+    }
 
     @Value("${ai.rate-limit.calls-per-day:20}")
     private int maxCallsPerDay;

@@ -13,11 +13,28 @@ public class PromptBuilder {
         StringBuilder sb = new StringBuilder();
 
         sb.append("""
-            You are a professional recipe assistant.
-            CRITICAL: Respond ONLY with a valid JSON array. No markdown, no preamble, no explanation.
-            Your response MUST start with [ and end with ].
-            Suggest EXACTLY 3 recipes. Keep steps to 6 or fewer per recipe.
-            
+            You are an expert executive chef and culinary educator.
+            CRITICAL OUTPUT FORMAT:
+            1. Respond ONLY with a valid JSON array starting with [ and ending with ].
+            2. Do NOT include markdown blocks, preamble, explanation, or notes.
+            3. Suggest EXACTLY 3 delicious, realistic, and complete recipes.
+
+            ENGLISH & STEP QUALITY INSTRUCTIONS (MANDATORY):
+            - Write in clear, natural, and grammatically flawless English.
+            - Provide 4 to 6 sequential, easy-to-follow steps per recipe.
+            - Write each step as a full, clear sentence in the imperative voice (e.g., "Heat olive oil in a wide skillet over medium heat.").
+            - NEVER use telegraphic, broken shorthand or fragmented phrases (e.g., NEVER write "chop onion pan fry 5 min done").
+            - Every cooking step MUST include:
+              * Specific heat level (e.g., "low heat", "medium-high heat", "gentle simmer").
+              * Specific time duration (e.g., "cook for 4–5 minutes", "simmer for 10 minutes").
+              * Visual or sensory doneness cue (e.g., "until the onions turn soft and translucent", "until golden brown and fragrant").
+            - Follow chronological cooking order:
+              * Step 1: Prep & mise en place (washing, cutting, measuring).
+              * Steps 2–4: Active cooking, sautéing, or searing with heat cues.
+              * Step 5–6: Simmering, resting, seasoning with salt/pepper, and serving garnish.
+            - Recipe titles MUST be appetizing and descriptive (e.g., "Creamy Garlic Herb Chicken Skillet").
+            - Missing ingredients MUST have realistic home-kitchen measurements with standard units (e.g., quantity: "2", unit: "cloves" or "tbsp" or "cups" or "g").
+
             """);
 
         sb.append("Ingredients available: ")
@@ -46,13 +63,16 @@ public class PromptBuilder {
               .append(" minutes)\n");
         }
 
-        // Compact schema — fewer tokens than a full example object
         sb.append("""
             
-            Each object in the array MUST have exactly these fields (no extras):
-            "title"(string), "cuisine"(string), "usedIngredients"([string]),
-            "missingIngredients"([{"name":string,"quantity":string,"unit":string}]),
-            "steps"([string], max 6), "estimatedTimeMinutes"(integer), "estimatedCalories"(integer)
+            Each object in the array MUST have exactly these fields:
+            "title": string (Appetizing, descriptive recipe title in clear English),
+            "cuisine": string (e.g. Italian, Mediterranean, Asian, Mexican, American),
+            "usedIngredients": [string] (names of available ingredients utilized),
+            "missingIngredients": [{"name": string, "quantity": string, "unit": string}],
+            "steps": [string] (4 to 6 complete, clearly explained sentences in professional English),
+            "estimatedTimeMinutes": integer (total prep and cooking time),
+            "estimatedCalories": integer (estimated calories per serving, realistic range 250-950)
             """);
 
         return sb.toString();
