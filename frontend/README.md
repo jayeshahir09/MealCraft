@@ -1,16 +1,60 @@
-# React + Vite
+# 🍳 MealCraft Web Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Modern, responsive glassmorphic web interface for MealCraft, built with **React 19**, **Vite 8**, and **Vanilla CSS Design System**.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## ⚡ Tech Stack & Libraries
 
-## React Compiler
+- **Framework**: React 19 (`react`, `react-dom`)
+- **Build Tool**: Vite 8.2 with Hot Module Replacement (HMR)
+- **Routing**: React Router v7 (`react-router-dom`)
+- **Drag & Drop**: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`
+- **HTTP Client**: Axios with JWT request interceptors
+- **Icons**: Lucide React
+- **Notifications**: React Hot Toast
+- **Linter**: Oxlint
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## 🛠️ Development Setup
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+### 1. Install Dependencies
+```bash
+npm install
+```
+
+### 2. Configure Environment
+Verify `.env.development` (or create `.env`):
+```env
+VITE_API_BASE_URL=http://localhost:8080/api
+```
+
+### 3. Run Development Server
+```bash
+npm run dev
+```
+Access the client at `http://localhost:5173`.
+
+---
+
+## 📜 Available Scripts
+
+- `npm run dev` — Starts local development server with instant HMR.
+- `npm run build` — Builds the optimized production bundle to `/dist`.
+- `npm run preview` — Locally preview the production build.
+- `npm run lint` — Runs Oxlint for fast static code analysis.
+
+---
+
+## 🏛️ Application Architecture
+
+```text
+src/
+├── api/                  # Modular Axios API endpoints (auth, recipes, pantry, etc.)
+├── context/              # Global state providers (AuthContext, ThemeContext)
+├── components/common/    # Header, Sidebar, BottomNav, Autocomplete, Modals
+├── pages/                # Route views (Dashboard, RecipeStudio, MealPlanner, etc.)
+├── utils/                # Canonical ingredient database, date calculations
+└── index.css             # Glassmorphic CSS variables, tokens, and responsive layout
+```
