@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { suggestRecipes, saveRecipe, getSavedRecipes, getAiCredits } from '../api/recipeApi';
 import { getPantry } from '../api/pantryApi';
 import { getPreferences } from '../api/shoppingListApi';
@@ -18,21 +18,61 @@ import {
 
 export default function RecipeSuggestionsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [ingredients, setIngredients] = useState([]);
+
+  // Load previously active suggestions state so back-navigation doesn't lose generated recipes
+  const getStoredState = () => {
+    try {
+      const data = sessionStorage.getItem('mealcraft_suggest_state');
+      if (data) return JSON.parse(data);
+    } catch (e) {
+      console.error('Failed reading suggest state', e);
+    }
+    return null;
+  };
+
+  const stored = getStoredState();
+
+  const [ingredients, setIngredients] = useState(() => stored?.ingredients || []);
   const [inputVal, setInputVal] = useState('');
-  const [diet, setDiet] = useState('NONE');
-  const [allergies, setAllergies] = useState([]);
+  const [diet, setDiet] = useState(() => stored?.diet || 'NONE');
+  const [allergies, setAllergies] = useState(() => stored?.allergies || []);
   const [allergyInput, setAllergyInput] = useState('');
-  const [cuisine, setCuisine] = useState('');
-  const [maxTime, setMaxTime] = useState(30);
-  const [recipes, setRecipes] = useState([]);
+  const [cuisine, setCuisine] = useState(() => stored?.cuisine || '');
+  const [maxTime, setMaxTime] = useState(() => stored?.maxTime || 30);
+  const [recipes, setRecipes] = useState(() => stored?.recipes || []);
   const [loading, setLoading] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [savedRecipeTitles, setSavedRecipeTitles] = useState(new Set());
   const [savingRecipeTitle, setSavingRecipeTitle] = useState(null);
   const [remaining, setRemaining] = useState(null);
   const [pantryItems, setPantryItems] = useState([]);
+
+  // Auto-sync search state and generated recipes to sessionStorage
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('mealcraft_suggest_state', JSON.stringify({
+        ingredients,
+        diet,
+        allergies,
+        cuisine,
+        maxTime,
+        recipes
+      }));
+    } catch (e) {
+      console.error('Failed saving suggest state', e);
+    }
+  }, [ingredients, diet, allergies, cuisine, maxTime, recipes]);
+
+  // If returning to previously loaded recipes, scroll down to results smoothly
+  useEffect(() => {
+    if (stored?.recipes?.length > 0) {
+      setTimeout(() => {
+        document.getElementById('curated-results')?.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
+    }
+  }, []);
 
   // Fetch real pantry items, user preferences, and existing saved recipes on mount
   useEffect(() => {
@@ -57,10 +97,10 @@ export default function RecipeSuggestionsPage() {
     getPreferences()
       .then(res => {
         if (res.data) {
-          if (res.data.dietType && !searchParams.get('diet')) setDiet(res.data.dietType);
-          if (res.data.allergies && res.data.allergies.length > 0) setAllergies(res.data.allergies);
-          if (res.data.preferredCuisine && !searchParams.get('cuisine')) setCuisine(res.data.preferredCuisine);
-          if (res.data.maxCookTimeMinutes && !searchParams.get('maxTime')) setMaxTime(res.data.maxCookTimeMinutes);
+          if (!stored?.diet && res.data.dietType && !searchParams.get('diet')) setDiet(res.data.dietType);
+          if (!stored?.allergies?.length && res.data.allergies && res.data.allergies.length > 0) setAllergies(res.data.allergies);
+          if (!stored?.cuisine && res.data.preferredCuisine && !searchParams.get('cuisine')) setCuisine(res.data.preferredCuisine);
+          if (!stored?.maxTime && res.data.maxCookTimeMinutes && !searchParams.get('maxTime')) setMaxTime(res.data.maxCookTimeMinutes);
         }
       })
       .catch(() => { });
@@ -176,7 +216,8 @@ export default function RecipeSuggestionsPage() {
         document.getElementById('curated-results')?.scrollIntoView({ behavior: 'smooth' });
       }, 150);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to generate recipes. Please try again.');
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to generate recipes. Please try again.';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -912,9 +953,30 @@ export default function RecipeSuggestionsPage() {
                   Recipe Results
                 </h3>
               </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                {recipes.length} recipes found
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <span style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  {recipes.length} recipes found
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecipes([]);
+                    try {
+                      sessionStorage.removeItem('mealcraft_suggest_state');
+                    } catch (e) {}
+                    toast('Results cleared');
+                  }}
+                  className="btn btn-ghost btn-sm"
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    borderRadius: '0.5rem',
+                    padding: '0.25rem 0.6rem'
+                  }}
+                >
+                  Clear Results
+                </button>
+              </div>
             </div>
 
             {/* 3-Column Glass Recipe Cards Grid */}
@@ -990,7 +1052,15 @@ export default function RecipeSuggestionsPage() {
                             justifyContent: 'center',
                             padding: '0.65rem 0.85rem'
                           }}
-                          onClick={() => setSelectedRecipe(recipe)}
+                          onClick={() => {
+                            navigate('/recipes/view', {
+                              state: {
+                                recipe,
+                                isSaved: savedRecipeTitles.has(recipe.title?.trim().toLowerCase()),
+                                from: 'suggest'
+                              }
+                            });
+                          }}
                         >
                           <ChefHat size={16} />
                           <span>View Recipe</span>

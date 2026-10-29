@@ -14,6 +14,7 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import RecipeSuggestionsPage from './pages/RecipeSuggestionsPage';
 import SavedRecipesPage from './pages/SavedRecipesPage';
+import RecipeDetailPage from './pages/RecipeDetailPage';
 import MealPlannerPage from './pages/MealPlannerPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import PantryPage from './pages/PantryPage';
@@ -89,6 +90,8 @@ function AppShell() {
               <Route path="/suggest" element={<ProtectedRoute><RecipeSuggestionsPage /></ProtectedRoute>} />
               <Route path="/saved" element={<ProtectedRoute><SavedRecipesPage /></ProtectedRoute>} />
               <Route path="/recipes" element={<ProtectedRoute><SavedRecipesPage /></ProtectedRoute>} />
+              <Route path="/recipes/view" element={<ProtectedRoute><RecipeDetailPage /></ProtectedRoute>} />
+              <Route path="/recipes/:id" element={<ProtectedRoute><RecipeDetailPage /></ProtectedRoute>} />
               <Route path="/planner" element={<ProtectedRoute><MealPlannerPage /></ProtectedRoute>} />
               <Route path="/mealplan" element={<Navigate to="/planner" replace />} />
               <Route path="/shopping" element={<ProtectedRoute><ShoppingListPage /></ProtectedRoute>} />

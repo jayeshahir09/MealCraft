@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   X, Clock, Flame, Utensils, Check, ChefHat,
   BookmarkPlus, CalendarPlus, CheckCircle2,
-  Sparkles, Globe, ShoppingBag, Share2
+  Sparkles, Globe, ShoppingBag, Share2, ExternalLink
 } from 'lucide-react';
 import { findMasterIngredient } from '../../utils/ingredients';
 import toast from 'react-hot-toast';
@@ -15,6 +16,7 @@ export default function RecipeDetailModal({
   onAssign,
   isSaved = false
 }) {
+  const navigate = useNavigate();
   const [completedSteps, setCompletedSteps] = useState(new Set());
   const [copiedIngredients, setCopiedIngredients] = useState(false);
 
@@ -81,6 +83,15 @@ export default function RecipeDetailModal({
     setTimeout(() => setCopiedIngredients(false), 2500);
   };
 
+  const handleOpenFullPage = () => {
+    onClose();
+    if (recipe.id) {
+      navigate(`/recipes/${recipe.id}`, { state: { recipe, isSaved } });
+    } else {
+      navigate('/recipes/view', { state: { recipe, isSaved } });
+    }
+  };
+
   return createPortal(
     <div
       className="modal-overlay recipe-modal-overlay"
@@ -90,7 +101,7 @@ export default function RecipeDetailModal({
       aria-labelledby="recipe-modal-title"
     >
       <div
-        className="recipe-modal-card glass-panel animate-fade-in-scale"
+        className="recipe-modal-card animate-fade-in-scale"
         style={{
           maxWidth: '980px',
           width: '94vw',
@@ -99,10 +110,12 @@ export default function RecipeDetailModal({
           flexDirection: 'column',
           overflow: 'hidden',
           borderRadius: '1.25rem',
+          background: 'var(--surface-card, var(--bg-surface))',
+          border: '1.5px solid var(--border-color)',
           boxShadow: '0 24px 60px rgba(0, 0, 0, 0.45)'
         }}
       >
-        {/* Clean Modal Header without Photos */}
+        {/* Clean Modal Header */}
         <div className="recipe-modal-header" style={{
           padding: '1.5rem 1.75rem 1.25rem',
           borderBottom: '1.5px solid var(--border-color)',
@@ -162,27 +175,47 @@ export default function RecipeDetailModal({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="btn btn-ghost btn-icon recipe-modal-close-btn"
-            style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            aria-label="Close recipe details"
-            title="Close (Esc)"
-          >
-            <X size={20} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <button
+              onClick={handleOpenFullPage}
+              className="btn btn-secondary btn-sm"
+              style={{
+                borderRadius: '0.65rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                padding: '0.45rem 0.85rem'
+              }}
+              title="Open dedicated recipe page"
+            >
+              <ExternalLink size={14} />
+              <span>Full Page</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="btn btn-ghost btn-icon recipe-modal-close-btn"
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              aria-label="Close recipe details"
+              title="Close (Esc)"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Modal Scrollable Body - 2-Column Wide Layout */}
-        <div className="recipe-modal-body">
+        <div className="recipe-modal-body" style={{ background: 'var(--surface-card, var(--bg-surface))' }}>
           {/* Left Column: Ingredients & Pantry */}
           <div className="recipe-modal-col-ingredients" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div className="recipe-section-header">

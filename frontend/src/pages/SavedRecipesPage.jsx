@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { getSavedRecipes, deleteRecipe } from '../api/recipeApi';
 import toast from 'react-hot-toast';
@@ -9,6 +9,7 @@ import CustomDropdown from '../components/common/CustomDropdown';
 import { POPULAR_CUISINES } from '../utils/cuisines';
 
 export default function SavedRecipesPage() {
+  const navigate = useNavigate();
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -295,7 +296,13 @@ export default function SavedRecipesPage() {
                     <div style={{ marginTop: 'auto', display: 'flex', gap: '0.75rem' }}>
                       <button
                         className="btn btn-primary btn-sm"
-                        onClick={() => setSelectedRecipe(recipe)}
+                        onClick={() => {
+                          if (recipe.id) {
+                            navigate(`/recipes/${recipe.id}`, { state: { recipe, isSaved: true } });
+                          } else {
+                            navigate('/recipes/view', { state: { recipe, isSaved: true } });
+                          }
+                        }}
                         style={{
                           flex: 1.5,
                           borderRadius: '0.75rem',
