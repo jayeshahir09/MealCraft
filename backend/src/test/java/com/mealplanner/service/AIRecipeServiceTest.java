@@ -52,6 +52,8 @@ class AIRecipeServiceTest {
     private RecipeCacheKeyGenerator recipeCacheKeyGenerator;
     @Mock
     private Cache springCache;
+    @Mock
+    private com.mealplanner.ai.FallbackRecipeGenerator fallbackRecipeGenerator;
 
     @InjectMocks
     private AIRecipeService aiRecipeService;
@@ -160,5 +162,32 @@ class AIRecipeServiceTest {
         assertEquals(14, credits.get("remainingCallsToday")); // 20 - 6 = 14
         assertEquals(20, credits.get("maxCallsPerDay"));
         assertEquals(6, credits.get("usedCallsToday"));
+    }
+
+    @Test
+    @DisplayName("Should return fallback recipes when LLM call throws exception")
+    void testSuggestRecipesFallbackOnLLMFailure() {
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(testUser));
+        when(aiUsageLogRepository.findByUserIdAndUsageDate(eq(1L), any(LocalDate.class)))
+                .thenReturn(Optional.of(AiUsageLog.builder().callCount(1).build()));
+
+        when(cacheManager.getCache("recipesuggestions")).thenReturn(springCache);
+        when(recipeCacheKeyGenerator.generate(any(), any(), any())).thenReturn("cache-key-err");
+        when(springCache.get("cache-key-err")).thenReturn(null);
+
+        when(promptBuilder.buildRecipeSuggestionPrompt(validRequest)).thenReturn("Prompt");
+        when(llmClient.callLLM("Prompt")).thenThrow(new com.mealplanner.exception.AIServiceException("503 Service Unavailable"));
+
+        List<AiRecipeDTO> fallbackRecipes = List.of(
+                AiRecipeDTO.builder().title("Fallback Dish").cuisine("Mediterranean").steps(List.of("Step 1")).build()
+        );
+        when(fallbackRecipeGenerator.generateFallbackRecipes(validRequest)).thenReturn(fallbackRecipes);
+
+        RecipeSuggestionResponse response = aiRecipeService.suggestRecipes("user@example.com", validRequest);
+
+        assertNotNull(response);
+        assertEquals(1, response.getRecipes().size());
+        assertEquals("Fallback Dish", response.getRecipes().get(0).getTitle());
+        verify(fallbackRecipeGenerator, times(1)).generateFallbackRecipes(validRequest);
     }
 }

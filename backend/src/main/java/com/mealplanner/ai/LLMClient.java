@@ -9,6 +9,7 @@ import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
@@ -25,36 +26,41 @@ public class LLMClient {
 
     public LLMClient(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        // Reuse a single RestTemplate with explicit timeouts (avoids creating one per call)
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(10_000);  // 10 s to establish connection
-        factory.setReadTimeout(180_000);    // 3 min to read (free LLMs are slow)
+        factory.setConnectTimeout(8_000);   // 8 s connect
+        factory.setReadTimeout(35_000);     // 35 s read per model (fits well under Render 100s timeout)
         this.restTemplate = new RestTemplate(factory);
     }
 
-    @Value("${openrouter.api.key}")
+    @Value("${openrouter.api.key:}")
     private String apiKey;
 
-    @Value("${openrouter.api.base-url}")
+    @Value("${openrouter.api.base-url:https://openrouter.ai/api/v1}")
     private String baseUrl;
 
     // Comma-separated list of models to try in order
-    @Value("${openrouter.models:openrouter/free,minimax/minimax-m3:free,minimax/minimax-m2.7:free,nvidia/nemotron-3-super-120b-a12b:free,nvidia/nemotron-3.5-lightning:free}")
+    @Value("${openrouter.models:openrouter/free,meta-llama/llama-3.3-70b-instruct:free,google/gemma-2-9b-it:free,mistralai/mistral-7b-instruct:free,qwen/qwen-2.5-72b-instruct:free}")
     private String modelsConfig;
 
     public String callLLM(String prompt) {
+        if (apiKey == null || apiKey.trim().isEmpty() || apiKey.trim().startsWith("${") || apiKey.trim().equals("your-openrouter-api-key")) {
+            log.warn("OPENROUTER_API_KEY is not configured in environment variables. Activating recipe fallback engine.");
+            throw new AIServiceException("OPENROUTER_API_KEY is missing or invalid");
+        }
+
         List<String> models = Arrays.asList(modelsConfig.split(","));
         AIServiceException lastException = null;
 
         for (String modelId : models) {
             modelId = modelId.trim();
+            if (modelId.isEmpty()) continue;
             try {
                 log.info("Attempting LLM call with model: {}", modelId);
                 return callModel(modelId, prompt);
             } catch (AIServiceException e) {
                 lastException = e;
                 if (isRetryableError(e)) {
-                    log.warn("Model '{}' failed ({}), trying next model...", modelId, e.getMessage());
+                    log.warn("Model '{}' failed ({}), trying next fallback model...", modelId, e.getMessage());
                 } else {
                     // Non-retryable error (e.g. bad auth), stop immediately
                     throw e;
@@ -64,20 +70,21 @@ public class LLMClient {
 
         // All models exhausted
         log.error("All {} models failed. Last error: {}", models.size(), lastException != null ? lastException.getMessage() : "unknown");
-        throw new AIServiceException("All AI models are currently unavailable. Please try again in a moment.");
+        throw new AIServiceException("All AI models are currently unavailable: " + (lastException != null ? lastException.getMessage() : "unknown"));
     }
 
     /**
      * Returns true if the error is worth retrying on the next model.
-     * 429 (rate limit) and 404 (model not found) are retryable.
-     * 401/403 (auth errors) are not — no point trying other models with the same key.
+     * All connection, timeout, 404, 429, and 5xx server errors should retry next model.
+     * Only 401/403 or missing API key are non-retryable.
      */
     private boolean isRetryableError(AIServiceException e) {
         String msg = e.getMessage();
-        if (msg == null) return false;
-        return msg.contains("rate limited") || msg.contains("429")
-            || msg.contains("model not found") || msg.contains("503")
-            || msg.contains("timed out");
+        if (msg == null) return true;
+        if (msg.contains("auth error") || msg.contains("API key missing") || msg.contains("401") || msg.contains("403")) {
+            return false;
+        }
+        return true;
     }
 
     private String callModel(String modelId, String prompt) {
@@ -88,14 +95,14 @@ public class LLMClient {
                 Map.of("role", "user", "content", prompt)
             ),
             "temperature", 0.7,
-            "max_tokens", 3500   // increased: 2000 was causing truncation on 3-5 recipe responses
+            "max_tokens", 3500
         );
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(apiKey);
-        headers.set("HTTP-Referer", "http://localhost:8080");
-        headers.set("X-Title", "AI Meal Planner");
+        headers.setBearerAuth(apiKey.trim());
+        headers.set("HTTP-Referer", "https://mealcraft-xcme.onrender.com");
+        headers.set("X-Title", "MealCraft");
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
@@ -113,22 +120,25 @@ public class LLMClient {
             return content;
 
         } catch (HttpClientErrorException.NotFound e) {
-            log.warn("Model '{}' not found on OpenRouter", modelId);
+            log.warn("Model '{}' not found on OpenRouter (404)", modelId);
             throw new AIServiceException("model not found: " + modelId);
         } catch (HttpClientErrorException.TooManyRequests e) {
             log.warn("Model '{}' is rate-limited (429): {}", modelId, e.getResponseBodyAsString());
             throw new AIServiceException("rate limited: " + modelId);
-        } catch (HttpClientErrorException e) {
-            log.error("OpenRouter HTTP error {} for model '{}': {}", e.getStatusCode(), modelId, e.getResponseBodyAsString());
-            throw new AIServiceException("AI service error: " + e.getStatusCode());
+        } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.Forbidden e) {
+            log.error("Authentication failed (401/403) with OpenRouter. Check OPENROUTER_API_KEY: {}", e.getStatusCode());
+            throw new AIServiceException("auth error: " + e.getStatusCode());
+        } catch (HttpStatusCodeException e) {
+            log.warn("OpenRouter HTTP error {} for model '{}': {}", e.getStatusCode(), modelId, e.getResponseBodyAsString());
+            throw new AIServiceException("AI HTTP error (" + e.getStatusCode().value() + ") on model: " + modelId);
         } catch (ResourceAccessException e) {
-            log.error("LLM API timeout for model '{}'", modelId);
+            log.warn("LLM API timeout/network error for model '{}': {}", modelId, e.getMessage());
             throw new AIServiceException("timed out: " + modelId);
         } catch (AIServiceException e) {
             throw e;
         } catch (Exception e) {
-            log.error("LLM API call failed for model '{}'", modelId, e);
-            throw new AIServiceException("AI service unavailable. Please try again later.");
+            log.warn("LLM API call failed for model '{}': {}", modelId, e.getMessage());
+            throw new AIServiceException("AI error on model: " + modelId);
         }
     }
 }

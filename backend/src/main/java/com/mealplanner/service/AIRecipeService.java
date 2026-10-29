@@ -1,5 +1,6 @@
 package com.mealplanner.service;
 
+import com.mealplanner.ai.FallbackRecipeGenerator;
 import com.mealplanner.ai.LLMClient;
 import com.mealplanner.ai.PromptBuilder;
 import com.mealplanner.ai.RecipeResponseParser;
@@ -35,6 +36,7 @@ public class AIRecipeService {
     private final UserRepository userRepository;
     private final CacheManager cacheManager;
     private final RecipeCacheKeyGenerator recipeCacheKeyGenerator;
+    private final FallbackRecipeGenerator fallbackRecipeGenerator;
 
     public AIRecipeService(LLMClient llmClient,
                            PromptBuilder promptBuilder,
@@ -42,7 +44,8 @@ public class AIRecipeService {
                            AiUsageLogRepository aiUsageLogRepository,
                            UserRepository userRepository,
                            CacheManager cacheManager,
-                           RecipeCacheKeyGenerator recipeCacheKeyGenerator) {
+                           RecipeCacheKeyGenerator recipeCacheKeyGenerator,
+                           FallbackRecipeGenerator fallbackRecipeGenerator) {
         this.llmClient = llmClient;
         this.promptBuilder = promptBuilder;
         this.responseParser = responseParser;
@@ -50,6 +53,7 @@ public class AIRecipeService {
         this.userRepository = userRepository;
         this.cacheManager = cacheManager;
         this.recipeCacheKeyGenerator = recipeCacheKeyGenerator;
+        this.fallbackRecipeGenerator = fallbackRecipeGenerator != null ? fallbackRecipeGenerator : new FallbackRecipeGenerator();
     }
 
     @Value("${ai.rate-limit.calls-per-day:20}")
@@ -90,8 +94,8 @@ public class AIRecipeService {
             }
             log.info("Cache miss — calling LLM for request: ingredients={}", request.getIngredients());
             String prompt = promptBuilder.buildRecipeSuggestionPrompt(request);
-            recipes = callWithRetry(prompt);
-            if (cache != null) {
+            recipes = getRecipesWithFallback(request, prompt);
+            if (cache != null && recipes != null && !recipes.isEmpty()) {
                 cache.put(cacheKey, recipes);
             }
             aiUsageLogRepository.incrementCallCount(user.getId(), LocalDate.now());
@@ -125,6 +129,16 @@ public class AIRecipeService {
                 "maxCallsPerDay", maxCallsPerDay,
                 "usedCallsToday", todayCount
         );
+    }
+
+    private List<AiRecipeDTO> getRecipesWithFallback(RecipeSuggestionRequest request, String prompt) {
+        try {
+            return callWithRetry(prompt);
+        } catch (Exception e) {
+            log.warn("AI generation failed or unavailable ({}), generating smart curated fallback recipes for ingredients: {}",
+                    e.getMessage(), request.getIngredients());
+            return fallbackRecipeGenerator.generateFallbackRecipes(request);
+        }
     }
 
     private List<AiRecipeDTO> callWithRetry(String prompt) {
