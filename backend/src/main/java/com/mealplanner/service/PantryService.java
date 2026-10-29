@@ -140,6 +140,85 @@ public class PantryService {
         }
     }
 
+    @Transactional
+    public void restoreRecipeIngredients(Long userId, Recipe recipe) {
+        if (recipe == null || recipe.getIngredients() == null || recipe.getIngredients().isEmpty()) {
+            return;
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return;
+        }
+
+        List<PantryItem> pantryItems = pantryRepository.findByUserId(userId);
+        Map<String, PantryItem> pantryMap = new HashMap<>();
+        for (PantryItem item : pantryItems) {
+            String key = UnitConverter.normalizeIngredientName(item.getIngredientName());
+            pantryMap.put(key, item);
+        }
+
+        for (Recipe.IngredientItem ingredient : recipe.getIngredients()) {
+            if (ingredient.getName() == null || ingredient.getName().isBlank()) {
+                continue;
+            }
+
+            String key = UnitConverter.normalizeIngredientName(ingredient.getName());
+            PantryItem item = pantryMap.get(key);
+
+            if (item == null) {
+                // Item was deleted when fully consumed or was missing; restore it
+                PantryItem newItem = PantryItem.builder()
+                        .user(user)
+                        .ingredientName(ingredient.getName().trim())
+                        .quantity(ingredient.getQuantity() != null ? ingredient.getQuantity().trim() : null)
+                        .unit(ingredient.getUnit() != null ? ingredient.getUnit().trim() : null)
+                        .build();
+                PantryItem saved = pantryRepository.save(newItem);
+                pantryMap.put(key, saved);
+            } else {
+                String pQtyStr = item.getQuantity();
+                String pUnit = item.getUnit();
+                String reqQtyStr = ingredient.getQuantity();
+                String reqUnit = ingredient.getUnit();
+
+                if (reqQtyStr == null || reqQtyStr.isBlank()) {
+                    continue;
+                }
+
+                double addQty = UnitConverter.parseQuantity(reqQtyStr);
+                if (addQty <= 0) {
+                    continue;
+                }
+
+                if (pQtyStr == null || pQtyStr.isBlank()) {
+                    item.setQuantity(UnitConverter.formatQuantity(addQty));
+                    if (pUnit == null || pUnit.isBlank()) {
+                        item.setUnit(reqUnit != null ? reqUnit.trim() : null);
+                    }
+                    pantryRepository.save(item);
+                    continue;
+                }
+
+                double currentQty = UnitConverter.parseQuantity(pQtyStr);
+                UnitConverter.UnitCategory reqCat = UnitConverter.getCategory(reqUnit);
+                UnitConverter.UnitCategory pCat = UnitConverter.getCategory(pUnit);
+
+                if (reqCat != UnitConverter.UnitCategory.UNKNOWN && reqCat == pCat) {
+                    double addBase = UnitConverter.toBaseUnit(addQty, reqUnit);
+                    double currentBase = UnitConverter.toBaseUnit(currentQty, pUnit);
+                    double totalBase = currentBase + addBase;
+                    double totalQty = UnitConverter.fromBaseUnit(totalBase, pUnit);
+                    item.setQuantity(UnitConverter.formatQuantity(totalQty));
+                } else {
+                    double totalQty = currentQty + addQty;
+                    item.setQuantity(UnitConverter.formatQuantity(totalQty));
+                }
+                pantryRepository.save(item);
+            }
+        }
+    }
+
     public List<String> getPantryIngredientNames(Long userId) {
         return pantryRepository.findByUserId(userId)
                 .stream()

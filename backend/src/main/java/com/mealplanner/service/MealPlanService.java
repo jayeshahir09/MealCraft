@@ -58,6 +58,12 @@ public class MealPlanService {
         MealPlanEntry.DayOfWeek day = MealPlanEntry.DayOfWeek.valueOf(dayOfWeek.toUpperCase());
         MealPlanEntry.MealType type = MealPlanEntry.MealType.valueOf(mealType.toUpperCase());
 
+        // If an existing entry was cooked, restore its ingredients to pantry before replacing
+        plan.getEntries().stream()
+                .filter(e -> e.getDayOfWeek() == day && e.getMealType() == type && e.isCooked() && e.getRecipe() != null)
+                .findFirst()
+                .ifPresent(e -> pantryService.restoreRecipeIngredients(user.getId(), e.getRecipe()));
+
         // Remove existing entry for this slot if exists
         plan.getEntries().removeIf(e -> e.getDayOfWeek() == day && e.getMealType() == type);
 
@@ -74,13 +80,19 @@ public class MealPlanService {
 
     @Transactional
     public MealPlanDTO removeRecipeFromSlot(String email, LocalDate weekStart,
-                                             String dayOfWeek, String mealType) {
+                                              String dayOfWeek, String mealType) {
         User user = getUser(email);
         MealPlan plan = mealPlanRepository.findByUserIdAndWeekStartDate(user.getId(), weekStart)
                 .orElseThrow(() -> new IllegalArgumentException("Meal plan not found"));
 
         MealPlanEntry.DayOfWeek day = MealPlanEntry.DayOfWeek.valueOf(dayOfWeek.toUpperCase());
         MealPlanEntry.MealType type = MealPlanEntry.MealType.valueOf(mealType.toUpperCase());
+
+        // If the entry was cooked, restore its ingredients to pantry before removing
+        plan.getEntries().stream()
+                .filter(e -> e.getDayOfWeek() == day && e.getMealType() == type && e.isCooked() && e.getRecipe() != null)
+                .findFirst()
+                .ifPresent(e -> pantryService.restoreRecipeIngredients(user.getId(), e.getRecipe()));
 
         plan.getEntries().removeIf(e -> e.getDayOfWeek() == day && e.getMealType() == type);
         return toDTO(mealPlanRepository.save(plan));
@@ -117,6 +129,10 @@ public class MealPlanService {
         } else if (!targetCooked && entry.isCooked()) {
             entry.setCooked(false);
             entry.setCookedAt(null);
+            // Restore recipe ingredients to pantry
+            if (entry.getRecipe() != null) {
+                pantryService.restoreRecipeIngredients(user.getId(), entry.getRecipe());
+            }
         }
 
         return toDTO(mealPlanRepository.save(plan));

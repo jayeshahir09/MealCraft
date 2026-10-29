@@ -81,13 +81,13 @@ public class ShoppingListService {
         String summary;
 
         if (isCurrentWeek) {
-            // Filter to remaining upcoming & uncooked meals of the current week (from now onward)
+            // Include all un-cooked meals of the current week so delayed or past-cutoff meals are not dropped from grocery/pantry planning
             for (MealPlanEntry entry : targetPlan.getEntries()) {
-                if (!entry.isCooked() && isSlotUpcoming(entry.getDayOfWeek(), entry.getMealType(), now)) {
+                if (!entry.isCooked()) {
                     targetEntries.add(entry);
                 }
             }
-            summary = "Smart list: filtered for upcoming remaining meals from today onward, adjusted for current pantry stock.";
+            summary = "Smart list: filtered for all un-cooked meals for the week, adjusted for current pantry stock.";
         } else {
             // Next week advance planning
             for (MealPlanEntry entry : targetPlan.getEntries()) {
