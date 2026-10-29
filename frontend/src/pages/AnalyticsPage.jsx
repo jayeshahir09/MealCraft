@@ -179,13 +179,13 @@ export default function AnalyticsPage() {
     );
   };
 
-  // Helper: Determine if an entry is considered cooked (manually logged, in history, or past standard cutoff time)
+  // Helper: Determine if an entry is considered cooked
   const isEntryCooked = (entry) => {
     if (!entry) return false;
     const entryKey = `${entry.dayOfWeek}_${entry.mealType}_${entry.recipeId}`;
     if (manuallyCookedKeys.has(entryKey)) return true;
+    if (entry.isCooked) return true;
     if (isRecipeCookedInHistory(entry.recipeId, entry.recipeTitle)) return true;
-    if (isMealPassedStandardTime(entry.dayOfWeek, entry.mealType, currentWeekMonday)) return true;
     return false;
   };
 

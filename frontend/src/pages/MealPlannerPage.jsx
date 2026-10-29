@@ -23,7 +23,9 @@ import {
   LayoutGrid,
   CalendarDays,
   Sparkles,
-  ShoppingCart
+  ShoppingCart,
+  RefreshCw,
+  ArrowRightLeft
 } from 'lucide-react';
 import { getMonday, formatWeekStart } from '../utils/dateUtils';
 
@@ -108,6 +110,8 @@ export default function MealPlannerPage() {
   });
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [moveModal, setMoveModal] = useState(null); // { fromDay, fromMeal, entry }
+  const [moveTarget, setMoveTarget] = useState({ day: 'MON', meal: 'DINNER' });
 
   // Auto-switch view on screen resize
   useEffect(() => {
@@ -149,6 +153,7 @@ export default function MealPlannerPage() {
 
   const getSlotKey = (day, meal, recipeId) => `${formatWeekStart(weekStart)}_${day}_${meal}_${recipeId}`;
 
+  // Only consider cooked if explicitly marked by user or stored in backend
   const isCooked = (day, meal, entry) => {
     if (!entry) return false;
     const key = getSlotKey(day, meal, entry.recipeId);
@@ -160,8 +165,10 @@ export default function MealPlannerPage() {
     if (recentHistory.some(h => h.recipeId === entry.recipeId || (entry.recipeTitle && h.recipeTitle?.toLowerCase() === entry.recipeTitle.toLowerCase()))) {
       return true;
     }
-    return isSlotPassedTime(day, meal, weekStart);
+    return false;
   };
+
+  const isPastWindow = (day, meal) => isSlotPassedTime(day, meal, weekStart);
 
   const handleToggleCooked = async (e, day, meal, entry) => {
     e.stopPropagation();
@@ -183,7 +190,7 @@ export default function MealPlannerPage() {
         localStorage.setItem('mealcraft_cooked_slots', JSON.stringify([...next]));
         return next;
       });
-      toast.success('Meal unmarked as cooked');
+      toast.success('Meal unmarked — ingredients restored to pantry');
     } else {
       setCookedKeys(prev => {
         const next = new Set(prev).add(key);
@@ -196,7 +203,7 @@ export default function MealPlannerPage() {
         localStorage.setItem('mealcraft_unmarked_slots', JSON.stringify([...next]));
         return next;
       });
-      toast.success(`"${entry.recipeTitle}" marked cooked — pantry updated!`);
+      toast.success(`"${entry.recipeTitle}" marked cooked — pantry stock deducted!`);
     }
 
     try {
@@ -217,6 +224,8 @@ export default function MealPlannerPage() {
 
   const handleAssign = async (day, meal, recipe) => {
     const previousPlan = plan;
+    const existing = getEntry(day, meal);
+    const wasCooked = existing ? isCooked(day, meal, existing) : false;
 
     setShowPicker(null);
     setPickerSearch('');
@@ -232,6 +241,7 @@ export default function MealPlannerPage() {
       steps: recipe.steps,
       dayOfWeek: day,
       mealType: meal,
+      isCooked: false
     };
 
     setPlan(prev => {
@@ -246,7 +256,7 @@ export default function MealPlannerPage() {
     try {
       const res = await assignRecipe(formatWeekStart(weekStart), day, meal, recipe.id);
       setPlan(res.data);
-      toast.success('Recipe scheduled');
+      toast.success(wasCooked ? 'Recipe replaced & pantry stock adjusted' : 'Recipe scheduled');
     } catch {
       setPlan(previousPlan);
       toast.error('Failed to assign recipe');
@@ -255,6 +265,8 @@ export default function MealPlannerPage() {
 
   const handleRemove = async (day, meal) => {
     const previousPlan = plan;
+    const entry = getEntry(day, meal);
+    const wasCooked = entry ? isCooked(day, meal, entry) : false;
 
     setPlan(prev => ({
       ...prev,
@@ -264,10 +276,37 @@ export default function MealPlannerPage() {
     try {
       const res = await removeFromSlot(formatWeekStart(weekStart), day, meal);
       setPlan(res.data);
-      toast.success('Recipe removed');
+      toast.success(wasCooked ? 'Recipe removed & ingredients restored to pantry' : 'Recipe removed');
     } catch {
       setPlan(previousPlan);
       toast.error('Failed to remove recipe');
+    }
+  };
+
+  const handleOpenMove = (day, meal, entry) => {
+    setMoveModal({ fromDay: day, fromMeal: meal, entry });
+    setMoveTarget({ day, meal });
+  };
+
+  const handleConfirmMove = async () => {
+    if (!moveModal) return;
+    const { fromDay, fromMeal, entry } = moveModal;
+    const { day: targetDay, meal: targetMeal } = moveTarget;
+
+    if (fromDay === targetDay && fromMeal === targetMeal) {
+      setMoveModal(null);
+      return;
+    }
+
+    setMoveModal(null);
+    try {
+      await assignRecipe(formatWeekStart(weekStart), targetDay, targetMeal, entry.recipeId);
+      await removeFromSlot(formatWeekStart(weekStart), fromDay, fromMeal);
+      await loadPlan();
+      toast.success(`Moved "${entry.recipeTitle}" to ${targetDay} ${MEAL_CONFIG[targetMeal]?.label || targetMeal}`);
+    } catch {
+      toast.error('Failed to move meal');
+      loadPlan();
     }
   };
 
@@ -357,7 +396,8 @@ export default function MealPlannerPage() {
               fontWeight: 600,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.35rem'
+              gap: '0.35rem',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
             <CalendarDays size={15} />
@@ -377,7 +417,8 @@ export default function MealPlannerPage() {
               fontWeight: 600,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.35rem'
+              gap: '0.35rem',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
             <LayoutGrid size={15} />
@@ -458,7 +499,7 @@ export default function MealPlannerPage() {
         /* ============================================================ */
         /* MOBILE-FIRST DAY VIEW (Optimized for Mobile Phones & Tablets) */
         /* ============================================================ */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div key="day-view" className="planner-view-pane" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Horizontal Scrollable Day Selector Pills */}
           <div
             style={{
@@ -544,7 +585,7 @@ export default function MealPlannerPage() {
           </div>
 
           {/* 4 Stacked Meal Cards for the Selected Day */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div key={selectedDay} className="planner-view-pane" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             {MEALS.map((meal) => {
               const entry = getEntry(selectedDay, meal);
               const config = MEAL_CONFIG[meal];
@@ -590,30 +631,74 @@ export default function MealPlannerPage() {
                     </div>
 
                     {entry && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemove(selectedDay, meal);
-                        }}
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.1)',
-                          border: 'none',
-                          borderRadius: '0.5rem',
-                          padding: '0.35rem 0.6rem',
-                          color: '#ef4444',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '0.75rem',
-                          fontWeight: 600
-                        }}
-                        title="Remove recipe"
-                      >
-                        <Trash2 size={13} />
-                        <span>Remove</span>
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowPicker({ day: selectedDay, meal })}
+                          style={{
+                            background: 'var(--primary-light)',
+                            border: 'none',
+                            borderRadius: '0.5rem',
+                            padding: '0.35rem 0.6rem',
+                            color: 'var(--primary)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600
+                          }}
+                          title="Change / swap recipe"
+                        >
+                          <RefreshCw size={12} />
+                          <span>Change</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenMove(selectedDay, meal, entry)}
+                          style={{
+                            background: 'var(--surface-container-high)',
+                            border: 'none',
+                            borderRadius: '0.5rem',
+                            padding: '0.35rem 0.6rem',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600
+                          }}
+                          title="Reschedule to another day or slot"
+                        >
+                          <ArrowRightLeft size={12} />
+                          <span>Reschedule</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemove(selectedDay, meal);
+                          }}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: 'none',
+                            borderRadius: '0.5rem',
+                            padding: '0.35rem 0.6rem',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600
+                          }}
+                          title="Remove recipe"
+                        >
+                          <Trash2 size={13} />
+                          <span>Remove</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -651,26 +736,54 @@ export default function MealPlannerPage() {
                           )}
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleCooked(e, selectedDay, meal, entry)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            padding: '0.4rem 0.85rem',
-                            borderRadius: '999px',
-                            cursor: 'pointer',
-                            border: cooked ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-accent)',
-                            background: cooked ? 'rgba(16, 185, 129, 0.15)' : 'var(--surface-container-low)',
-                            color: cooked ? '#10b981' : 'var(--text-muted)'
-                          }}
-                        >
-                          <Check size={13} style={{ strokeWidth: cooked ? 3 : 2 }} />
-                          <span>{cooked ? 'Cooked' : 'Mark as Cooked'}</span>
-                        </button>
+                        {(() => {
+                          const isPast = isPastWindow(selectedDay, meal);
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleCooked(e, selectedDay, meal, entry)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                padding: '0.4rem 0.85rem',
+                                borderRadius: '999px',
+                                cursor: 'pointer',
+                                border: cooked
+                                  ? '1px solid rgba(16, 185, 129, 0.4)'
+                                  : isPast
+                                    ? '1px solid rgba(245, 158, 11, 0.4)'
+                                    : '1px solid var(--border-accent)',
+                                background: cooked
+                                  ? 'rgba(16, 185, 129, 0.15)'
+                                  : isPast
+                                    ? 'rgba(245, 158, 11, 0.12)'
+                                    : 'var(--surface-container-low)',
+                                color: cooked ? '#10b981' : isPast ? '#f59e0b' : 'var(--text-muted)'
+                              }}
+                              title={cooked ? 'Marked as Cooked' : isPast ? 'Window elapsed — Click to mark cooked' : 'Mark as Cooked'}
+                            >
+                              {cooked ? (
+                                <>
+                                  <Check size={13} style={{ strokeWidth: 3 }} />
+                                  <span>Cooked</span>
+                                </>
+                              ) : isPast ? (
+                                <>
+                                  <Clock size={13} />
+                                  <span>Elapsed • Cook</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Check size={13} style={{ strokeWidth: 2 }} />
+                                  <span>Mark as Cooked</span>
+                                </>
+                              )}
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   ) : (
@@ -706,7 +819,7 @@ export default function MealPlannerPage() {
         /* ============================================================ */
         /* WEEK GRID VIEW (Full 7-Day Table for Desktop & Tablet)       */
         /* ============================================================ */
-        <div style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
+        <div key="week-view" className="planner-view-pane" style={{ overflowX: 'auto', paddingBottom: '0.5rem' }}>
           <div className="meal-planner-grid glass-panel" style={{ borderRadius: '1.25rem', padding: '1.25rem' }}>
             {/* Corner header */}
             <div className="meal-planner-header" style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
@@ -749,28 +862,77 @@ export default function MealPlannerPage() {
                               <p className="meal-slot-recipe-title">
                                 {entry.recipeTitle}
                               </p>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRemove(day, meal);
-                                }}
-                                style={{
-                                  background: 'var(--primary-light)',
-                                  border: 'none',
-                                  borderRadius: '50%',
-                                  width: '20px',
-                                  height: '20px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  cursor: 'pointer',
-                                  color: 'var(--primary)',
-                                  flexShrink: 0
-                                }}
-                                title="Remove from slot"
-                              >
-                                <X size={11} />
-                              </button>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowPicker({ day, meal });
+                                  }}
+                                  style={{
+                                    background: 'var(--primary-light)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '19px',
+                                    height: '19px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: 'var(--primary)',
+                                    flexShrink: 0
+                                  }}
+                                  title="Change / swap recipe"
+                                >
+                                  <RefreshCw size={10} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenMove(day, meal, entry);
+                                  }}
+                                  style={{
+                                    background: 'var(--surface-container-high)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '19px',
+                                    height: '19px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-secondary)',
+                                    flexShrink: 0
+                                  }}
+                                  title="Reschedule to another day or slot"
+                                >
+                                  <ArrowRightLeft size={10} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemove(day, meal);
+                                  }}
+                                  style={{
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '19px',
+                                    height: '19px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: '#ef4444',
+                                    flexShrink: 0
+                                  }}
+                                  title="Remove from slot"
+                                >
+                                  <X size={10} />
+                                </button>
+                              </div>
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '6px', gap: '4px', flexWrap: 'wrap' }}>
@@ -780,28 +942,55 @@ export default function MealPlannerPage() {
                                 </p>
                               ) : <span />}
 
-                              <button
-                                type="button"
-                                onClick={(e) => handleToggleCooked(e, day, meal, entry)}
-                                className={`slot-cooked-btn ${cooked ? 'active' : ''}`}
-                                title={cooked ? 'Marked as Cooked' : 'Mark as Cooked'}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  fontSize: '0.68rem',
-                                  fontWeight: 700,
-                                  padding: '2px 8px',
-                                  borderRadius: '999px',
-                                  cursor: 'pointer',
-                                  border: cooked ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-accent)',
-                                  background: cooked ? 'rgba(16, 185, 129, 0.15)' : 'var(--surface-container-low)',
-                                  color: cooked ? '#10b981' : 'var(--text-muted)'
-                                }}
-                              >
-                                <Check size={11} style={{ strokeWidth: cooked ? 3 : 2 }} />
-                                <span>{cooked ? 'Cooked' : 'Cook'}</span>
-                              </button>
+                              {(() => {
+                                const isPast = isPastWindow(day, meal);
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleToggleCooked(e, day, meal, entry)}
+                                    className={`slot-cooked-btn ${cooked ? 'active' : ''}`}
+                                    title={cooked ? 'Marked as Cooked' : isPast ? 'Window elapsed — Click to mark cooked' : 'Mark as Cooked'}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px',
+                                      fontSize: '0.68rem',
+                                      fontWeight: 700,
+                                      padding: '2px 8px',
+                                      borderRadius: '999px',
+                                      cursor: 'pointer',
+                                      border: cooked
+                                        ? '1px solid rgba(16, 185, 129, 0.4)'
+                                        : isPast
+                                          ? '1px solid rgba(245, 158, 11, 0.4)'
+                                          : '1px solid var(--border-accent)',
+                                      background: cooked
+                                        ? 'rgba(16, 185, 129, 0.15)'
+                                        : isPast
+                                          ? 'rgba(245, 158, 11, 0.12)'
+                                          : 'var(--surface-container-low)',
+                                      color: cooked ? '#10b981' : isPast ? '#f59e0b' : 'var(--text-muted)'
+                                    }}
+                                  >
+                                    {cooked ? (
+                                      <>
+                                        <Check size={11} style={{ strokeWidth: 3 }} />
+                                        <span>Cooked</span>
+                                      </>
+                                    ) : isPast ? (
+                                      <>
+                                        <Clock size={11} />
+                                        <span>Elapsed • Cook</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Check size={11} style={{ strokeWidth: 2 }} />
+                                        <span>Cook</span>
+                                      </>
+                                    )}
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </div>
                         ) : (
@@ -1008,6 +1197,155 @@ export default function MealPlannerPage() {
               >
                 <Trash2 size={15} />
                 <span>Clear Week</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Reschedule / Move Meal Modal */}
+      {moveModal && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem'
+          }}
+          onClick={() => setMoveModal(null)}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              borderRadius: '1.25rem',
+              padding: '1.75rem',
+              background: 'var(--surface-container-high)',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div style={{ width: 36, height: 36, borderRadius: '0.65rem', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
+                  <ArrowRightLeft size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--on-background)' }}>
+                    Reschedule Meal
+                  </h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                    {moveModal.entry?.recipeTitle}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                onClick={() => setMoveModal(null)}
+                aria-label="Close modal"
+                style={{ padding: '0.25rem', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+              Currently scheduled for <strong>{moveModal.fromDay} ({MEAL_CONFIG[moveModal.fromMeal]?.label || moveModal.fromMeal})</strong>. Select the new day and slot to move this meal:
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem', marginBottom: '1.5rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.45rem' }}>
+                  Target Day
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.35rem' }}>
+                  {DAYS.map(day => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => setMoveTarget(prev => ({ ...prev, day }))}
+                      style={{
+                        padding: '0.55rem 0.2rem',
+                        borderRadius: '0.5rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        border: moveTarget.day === day ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                        background: moveTarget.day === day ? 'var(--primary-light)' : 'var(--surface-container-low)',
+                        color: moveTarget.day === day ? 'var(--primary)' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.45rem' }}>
+                  Target Meal Slot
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
+                  {MEALS.map(meal => {
+                    const cfg = MEAL_CONFIG[meal];
+                    const isSelected = moveTarget.meal === meal;
+                    return (
+                      <button
+                        key={meal}
+                        type="button"
+                        onClick={() => setMoveTarget(prev => ({ ...prev, meal }))}
+                        style={{
+                          padding: '0.6rem 0.35rem',
+                          borderRadius: '0.5rem',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                          background: isSelected ? 'var(--primary-light)' : 'var(--surface-container-low)',
+                          color: isSelected ? 'var(--primary)' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '3px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span>{cfg.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setMoveModal(null)}
+                style={{ padding: '0.55rem 1rem', borderRadius: '0.65rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleConfirmMove}
+                style={{ padding: '0.55rem 1.15rem', borderRadius: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <ArrowRightLeft size={14} />
+                <span>Move Meal</span>
               </button>
             </div>
           </div>
