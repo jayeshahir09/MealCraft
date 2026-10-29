@@ -3,6 +3,9 @@ package com.mealplanner.service;
 import com.mealplanner.dto.AuthResponse;
 import com.mealplanner.dto.LoginRequest;
 import com.mealplanner.dto.RegisterRequest;
+import com.mealplanner.dto.RegisterResponse;
+import com.mealplanner.dto.ResendOtpRequest;
+import com.mealplanner.dto.VerifyOtpRequest;
 import com.mealplanner.entity.User;
 import com.mealplanner.entity.UserPreference;
 import com.mealplanner.repository.UserRepository;
@@ -13,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Service
 public class AuthService {
 
@@ -20,41 +25,86 @@ public class AuthService {
     private final UserPreferenceRepository userPreferenceRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final OtpService otpService;
 
     public AuthService(UserRepository userRepository,
                        UserPreferenceRepository userPreferenceRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtUtil jwtUtil) {
+                       JwtUtil jwtUtil,
+                       OtpService otpService) {
         this.userRepository = userRepository;
         this.userPreferenceRepository = userPreferenceRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.otpService = otpService;
     }
 
+    /**
+     * Handles user registration: creates an unverified user record and dispatches an OTP.
+     */
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request) {
         String cleanEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
         String cleanName = request.getName() != null ? request.getName().trim() : "";
 
-        if (userRepository.existsByEmail(cleanEmail)) {
-            throw new IllegalArgumentException("Email already registered: " + cleanEmail);
+        Optional<User> existingUserOpt = userRepository.findByEmail(cleanEmail);
+        User user;
+
+        if (existingUserOpt.isPresent()) {
+            User existing = existingUserOpt.get();
+            if (existing.isVerified()) {
+                throw new IllegalArgumentException("Email already registered: " + cleanEmail);
+            }
+            // Update details for unverified user re-attempting registration
+            existing.setName(cleanName);
+            existing.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+            user = userRepository.save(existing);
+        } else {
+            user = User.builder()
+                    .name(cleanName)
+                    .email(cleanEmail)
+                    .passwordHash(passwordEncoder.encode(request.getPassword()))
+                    .isVerified(false)
+                    .build();
+            user = userRepository.save(user);
         }
 
-        User user = User.builder()
-                .name(cleanName)
-                .email(cleanEmail)
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .build();
+        // Generate and send OTP via email
+        otpService.generateAndSendOtp(cleanEmail, cleanName);
 
+        return RegisterResponse.builder()
+                .message("Verification code sent to your email. Please verify to complete registration.")
+                .email(cleanEmail)
+                .requiresOtp(true)
+                .build();
+    }
+
+    /**
+     * Verifies the 6-digit OTP, activates the user account, and returns authentication JWT.
+     */
+    @Transactional
+    public AuthResponse verifyOtp(VerifyOtpRequest request) {
+        String cleanEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+
+        User user = userRepository.findByEmail(cleanEmail)
+                .orElseThrow(() -> new IllegalArgumentException("No account found for email: " + cleanEmail));
+
+        // Validate code (throws IllegalArgumentException with attempt counts on failure)
+        otpService.verifyOtp(cleanEmail, request.getOtp());
+
+        // Mark account verified
+        user.setVerified(true);
         user = userRepository.save(user);
 
-        // Create default preferences
-        UserPreference prefs = UserPreference.builder()
-                .user(user)
-                .dietType(UserPreference.DietType.NONE)
-                .allergies(new String[]{})
-                .build();
-        userPreferenceRepository.save(prefs);
+        // Initialize default preferences if they don't exist yet
+        if (userPreferenceRepository.findByUserId(user.getId()).isEmpty()) {
+            UserPreference prefs = UserPreference.builder()
+                    .user(user)
+                    .dietType(UserPreference.DietType.NONE)
+                    .allergies(new String[]{})
+                    .build();
+            userPreferenceRepository.save(prefs);
+        }
 
         String token = jwtUtil.generateToken(user.getEmail());
         return AuthResponse.builder()
@@ -65,6 +115,32 @@ public class AuthService {
                 .build();
     }
 
+    /**
+     * Resends a fresh OTP code with rate-limit and cooldown protections.
+     */
+    @Transactional
+    public RegisterResponse resendOtp(ResendOtpRequest request) {
+        String cleanEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+
+        User user = userRepository.findByEmail(cleanEmail)
+                .orElseThrow(() -> new IllegalArgumentException("No registration found for email: " + cleanEmail));
+
+        if (user.isVerified()) {
+            throw new IllegalArgumentException("This account is already verified. Please sign in.");
+        }
+
+        otpService.generateAndSendOtp(cleanEmail, user.getName());
+
+        return RegisterResponse.builder()
+                .message("A new verification code has been sent to your email.")
+                .email(cleanEmail)
+                .requiresOtp(true)
+                .build();
+    }
+
+    /**
+     * Authenticates user, enforcing email verification before granting access.
+     */
     public AuthResponse login(LoginRequest request) {
         String cleanEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
         User user = userRepository.findByEmail(cleanEmail)
@@ -72,6 +148,10 @@ public class AuthService {
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new BadCredentialsException("Invalid email or password");
+        }
+
+        if (!user.isVerified()) {
+            throw new BadCredentialsException("Please verify your email address before logging in. A verification code was sent to your email.");
         }
 
         String token = jwtUtil.generateToken(user.getEmail());

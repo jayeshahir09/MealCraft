@@ -4,29 +4,93 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { login } from '../api/authApi';
 import toast from 'react-hot-toast';
-import { Mail, Lock, ArrowRight, Sun, Moon, ChefHat } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Sun, Moon, ChefHat, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({ email: '', password: '', general: '' });
   const { loginSuccess } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
+  const validate = () => {
+    const newErrors = { email: '', password: '', general: '' };
+    let isValid = true;
+    const cleanEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!cleanEmail) {
+      newErrors.email = 'Email address is required';
+      isValid = false;
+    } else if (!emailRegex.test(cleanEmail)) {
+      newErrors.email = 'Please enter a valid email address';
+      isValid = false;
+    }
+
+    if (!password) {
+      newErrors.password = 'Password is required';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    if (errors.email || errors.general) {
+      setErrors(prev => ({ ...prev, email: '', general: '' }));
+    }
+  };
+
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+    if (errors.password || errors.general) {
+      setErrors(prev => ({ ...prev, password: '', general: '' }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) return toast.error('Please fill in all fields');
+    if (!validate()) {
+      return;
+    }
 
     const cleanEmail = email.trim();
     setLoading(true);
+    setErrors({ email: '', password: '', general: '' });
+
     try {
       const res = await login(cleanEmail, password);
       loginSuccess(res.data);
       toast.success(`Welcome back, ${res.data.name}`);
       navigate('/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid email or password');
+      const status = err.response?.status;
+      const data = err.response?.data;
+
+      if (status === 401) {
+        const errorMsg = data?.message || 'Invalid email or password. Please check your credentials and try again.';
+        setErrors(prev => ({
+          ...prev,
+          general: errorMsg,
+          password: 'Incorrect password or unverified account'
+        }));
+        toast.error(errorMsg);
+      } else if (data?.errors && typeof data.errors === 'object') {
+        const fieldErrors = { email: '', password: '', general: data.message || 'Please correct the highlighted fields' };
+        if (data.errors.email) fieldErrors.email = data.errors.email;
+        if (data.errors.password) fieldErrors.password = data.errors.password;
+        setErrors(fieldErrors);
+        toast.error(fieldErrors.general);
+      } else {
+        const errorMsg = data?.message || err.message || 'Unable to sign in. Please try again.';
+        setErrors(prev => ({ ...prev, general: errorMsg }));
+        toast.error(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -53,7 +117,7 @@ export default function LoginPage() {
         boxShadow: 'var(--shadow-ambient-lg)',
         margin: '1rem'
       }}>
-        <div style={{ textAlign: 'center', marginBottom: '2.25rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{
             width: '60px',
             height: '60px',
@@ -83,43 +147,73 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {errors.general && (
+          <div className="auth-error-banner" role="alert">
+            <AlertCircle size={18} />
+            <span>{errors.general}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div className="form-group">
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+            <label htmlFor="login-email" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
               Email Address
             </label>
             <div style={{ position: 'relative' }}>
-              <Mail size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <Mail size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: errors.email ? 'var(--error)' : 'var(--text-muted)' }} />
               <input
                 id="login-email"
                 type="email"
-                className="form-input"
+                className={`form-input ${errors.email ? 'is-invalid' : ''}`}
                 style={{ paddingLeft: '2.75rem' }}
                 placeholder="you@example.com"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 autoComplete="email"
+                aria-invalid={!!errors.email}
               />
             </div>
+            {errors.email && (
+              <div className="form-field-error">
+                <AlertCircle size={14} />
+                <span>{errors.email}</span>
+              </div>
+            )}
           </div>
 
           <div className="form-group">
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+            <label htmlFor="login-password" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
               Password
             </label>
             <div style={{ position: 'relative' }}>
-              <Lock size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <Lock size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: errors.password ? 'var(--error)' : 'var(--text-muted)' }} />
               <input
                 id="login-password"
-                type="password"
-                className="form-input"
-                style={{ paddingLeft: '2.75rem' }}
+                type={showPassword ? 'text' : 'password'}
+                className={`form-input ${errors.password ? 'is-invalid' : ''}`}
+                style={{ paddingLeft: '2.75rem', paddingRight: '2.75rem' }}
                 placeholder="••••••••"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 autoComplete="current-password"
+                aria-invalid={!!errors.password}
               />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={() => setShowPassword(prev => !prev)}
+                title={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
+            {errors.password && (
+              <div className="form-field-error">
+                <AlertCircle size={14} />
+                <span>{errors.password}</span>
+              </div>
+            )}
           </div>
 
           <button

@@ -1,9 +1,7 @@
 package com.mealplanner.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mealplanner.dto.AuthResponse;
-import com.mealplanner.dto.LoginRequest;
-import com.mealplanner.dto.RegisterRequest;
+import com.mealplanner.dto.*;
 import com.mealplanner.security.JwtAuthFilter;
 import com.mealplanner.security.JwtUtil;
 import com.mealplanner.security.UserDetailsServiceImpl;
@@ -46,18 +44,17 @@ class AuthControllerTest {
     private UserDetailsServiceImpl userDetailsService;
 
     @Test
-    @DisplayName("POST /api/auth/register - success returns 200 and AuthResponse")
+    @DisplayName("POST /api/auth/register - success returns 200 and RegisterResponse")
     void testRegisterSuccess() throws Exception {
         RegisterRequest request = new RegisterRequest();
         request.setName("Chef John");
         request.setEmail("john@example.com");
         request.setPassword("password123");
 
-        AuthResponse response = AuthResponse.builder()
-                .token("jwt-token-xyz")
-                .userId(1L)
-                .name("Chef John")
+        RegisterResponse response = RegisterResponse.builder()
+                .message("Verification code sent to your email.")
                 .email("john@example.com")
+                .requiresOtp(true)
                 .build();
 
         when(authService.register(any(RegisterRequest.class))).thenReturn(response);
@@ -66,10 +63,8 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("jwt-token-xyz"))
-                .andExpect(jsonPath("$.userId").value(1))
-                .andExpect(jsonPath("$.name").value("Chef John"))
-                .andExpect(jsonPath("$.email").value("john@example.com"));
+                .andExpect(jsonPath("$.email").value("john@example.com"))
+                .andExpect(jsonPath("$.requiresOtp").value(true));
     }
 
     @Test
@@ -84,6 +79,56 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/verify-otp - success returns 200 and AuthResponse")
+    void testVerifyOtpSuccess() throws Exception {
+        VerifyOtpRequest request = VerifyOtpRequest.builder()
+                .email("john@example.com")
+                .otp("123456")
+                .build();
+
+        AuthResponse response = AuthResponse.builder()
+                .token("jwt-token-xyz")
+                .userId(1L)
+                .name("Chef John")
+                .email("john@example.com")
+                .build();
+
+        when(authService.verifyOtp(any(VerifyOtpRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/auth/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("jwt-token-xyz"))
+                .andExpect(jsonPath("$.userId").value(1))
+                .andExpect(jsonPath("$.name").value("Chef John"))
+                .andExpect(jsonPath("$.email").value("john@example.com"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/resend-otp - success returns 200 and RegisterResponse")
+    void testResendOtpSuccess() throws Exception {
+        ResendOtpRequest request = ResendOtpRequest.builder()
+                .email("john@example.com")
+                .build();
+
+        RegisterResponse response = RegisterResponse.builder()
+                .message("A new verification code has been sent.")
+                .email("john@example.com")
+                .requiresOtp(true)
+                .build();
+
+        when(authService.resendOtp(any(ResendOtpRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/auth/resend-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("john@example.com"))
+                .andExpect(jsonPath("$.requiresOtp").value(true));
     }
 
     @Test

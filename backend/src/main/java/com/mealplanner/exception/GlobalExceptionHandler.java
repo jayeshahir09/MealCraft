@@ -18,21 +18,32 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach(error -> {
-            String field = ((FieldError) error).getField();
-            errors.put(field, error.getDefaultMessage());
+        ex.getBindingResult().getFieldErrors().forEach(error -> {
+            errors.put(error.getField(), error.getDefaultMessage());
         });
-        return ResponseEntity.badRequest().body(errorBody(400, "Validation failed", errors.toString()));
+        String firstError = errors.values().stream().findFirst().orElse("Validation failed");
+        Map<String, Object> body = errorBody(400, firstError, errors.toString());
+        body.put("errors", errors);
+        return ResponseEntity.badRequest().body(body);
     }
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleBadCredentials(BadCredentialsException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorBody(401, ex.getMessage(), null));
+        String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
+                ? ex.getMessage()
+                : "Invalid email or password";
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorBody(401, message, null));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArg(IllegalArgumentException ex) {
-        return ResponseEntity.badRequest().body(errorBody(400, ex.getMessage(), null));
+        Map<String, Object> body = errorBody(400, ex.getMessage(), null);
+        if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("email")) {
+            Map<String, String> errors = new HashMap<>();
+            errors.put("email", ex.getMessage());
+            body.put("errors", errors);
+        }
+        return ResponseEntity.badRequest().body(body);
     }
 
     @ExceptionHandler(RateLimitExceededException.class)

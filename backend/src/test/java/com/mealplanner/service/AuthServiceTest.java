@@ -3,6 +3,8 @@ package com.mealplanner.service;
 import com.mealplanner.dto.AuthResponse;
 import com.mealplanner.dto.LoginRequest;
 import com.mealplanner.dto.RegisterRequest;
+import com.mealplanner.dto.RegisterResponse;
+import com.mealplanner.dto.VerifyOtpRequest;
 import com.mealplanner.entity.User;
 import com.mealplanner.entity.UserPreference;
 import com.mealplanner.repository.UserPreferenceRepository;
@@ -40,6 +42,9 @@ class AuthServiceTest {
     @Mock
     private JwtUtil jwtUtil;
 
+    @Mock
+    private OtpService otpService;
+
     @InjectMocks
     private AuthService authService;
 
@@ -63,40 +68,70 @@ class AuthServiceTest {
                 .name("Chef John")
                 .email("john@example.com")
                 .passwordHash("hashed_secret123")
+                .isVerified(true)
                 .build();
     }
 
     @Test
-    @DisplayName("Register - successfully creates user, default preferences and returns JWT")
+    @DisplayName("Register - creates unverified user and dispatches OTP email")
     void testRegisterSuccess() {
-        when(userRepository.existsByEmail("john@example.com")).thenReturn(false);
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("secret123")).thenReturn("hashed_secret123");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
+
+        RegisterResponse response = authService.register(registerRequest);
+
+        assertNotNull(response);
+        assertEquals("john@example.com", response.getEmail());
+        assertTrue(response.isRequiresOtp());
+
+        verify(otpService, times(1)).generateAndSendOtp(eq("john@example.com"), eq("Chef John"));
+    }
+
+    @Test
+    @DisplayName("Register - throws exception when email already verified")
+    void testRegisterEmailAlreadyExists() {
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
+
+        assertThrows(IllegalArgumentException.class, () -> authService.register(registerRequest));
+        verify(userRepository, never()).save(any());
+        verify(otpService, never()).generateAndSendOtp(any(), any());
+    }
+
+    @Test
+    @DisplayName("VerifyOtp - successfully validates code, sets is_verified=true, and returns JWT")
+    void testVerifyOtpSuccess() {
+        User unverifiedUser = User.builder()
+                .id(1L)
+                .name("Chef John")
+                .email("john@example.com")
+                .passwordHash("hashed_secret123")
+                .isVerified(false)
+                .build();
+
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(unverifiedUser));
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(userPreferenceRepository.findByUserId(1L)).thenReturn(Optional.empty());
         when(jwtUtil.generateToken("john@example.com")).thenReturn("mock-jwt-token");
 
-        AuthResponse response = authService.register(registerRequest);
+        VerifyOtpRequest verifyRequest = VerifyOtpRequest.builder()
+                .email("john@example.com")
+                .otp("123456")
+                .build();
+
+        AuthResponse response = authService.verifyOtp(verifyRequest);
 
         assertNotNull(response);
         assertEquals("mock-jwt-token", response.getToken());
         assertEquals("Chef John", response.getName());
-        assertEquals("john@example.com", response.getEmail());
         assertEquals(1L, response.getUserId());
 
+        verify(otpService, times(1)).verifyOtp("john@example.com", "123456");
         verify(userPreferenceRepository, times(1)).save(any(UserPreference.class));
     }
 
     @Test
-    @DisplayName("Register - throws exception when email already exists")
-    void testRegisterEmailAlreadyExists() {
-        when(userRepository.existsByEmail("john@example.com")).thenReturn(true);
-
-        assertThrows(IllegalArgumentException.class, () -> authService.register(registerRequest));
-        verify(userRepository, never()).save(any());
-        verify(userPreferenceRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("Login - successfully returns JWT on valid credentials")
+    @DisplayName("Login - successfully returns JWT on valid credentials for verified user")
     void testLoginSuccess() {
         when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
         when(passwordEncoder.matches("secret123", "hashed_secret123")).thenReturn(true);
@@ -107,6 +142,24 @@ class AuthServiceTest {
         assertNotNull(response);
         assertEquals("mock-login-token", response.getToken());
         assertEquals(1L, response.getUserId());
+    }
+
+    @Test
+    @DisplayName("Login - blocks unverified user with BadCredentialsException")
+    void testLoginUnverifiedUserBlocked() {
+        User unverified = User.builder()
+                .id(2L)
+                .name("Unverified")
+                .email("john@example.com")
+                .passwordHash("hashed_secret123")
+                .isVerified(false)
+                .build();
+
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(unverified));
+        when(passwordEncoder.matches("secret123", "hashed_secret123")).thenReturn(true);
+
+        BadCredentialsException ex = assertThrows(BadCredentialsException.class, () -> authService.login(loginRequest));
+        assertTrue(ex.getMessage().contains("verify your email"));
     }
 
     @Test

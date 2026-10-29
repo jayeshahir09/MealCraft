@@ -14,14 +14,21 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 (token expired) globally
+// Handle 401 (token expired) globally for protected requests only
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    const url = error.config?.url || '';
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register');
+    const isAuthPage = typeof window !== 'undefined' &&
+      (window.location.pathname === '/login' || window.location.pathname === '/register');
+
+    if ((error.response?.status === 401 || error.response?.status === 403) && !isAuthEndpoint) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      if (!isAuthPage) {
+        window.location.href = '/login';
+      }
     }
     
     return Promise.reject(error);

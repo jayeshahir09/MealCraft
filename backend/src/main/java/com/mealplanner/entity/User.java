@@ -26,6 +26,10 @@ public class User {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @Builder.Default
+    @Column(name = "is_verified", nullable = false)
+    private boolean isVerified = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
