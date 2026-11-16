@@ -1,11 +1,16 @@
 package com.mealplanner.service;
 
 import com.mealplanner.dto.AuthResponse;
+import com.mealplanner.dto.ForgotPasswordRequest;
 import com.mealplanner.dto.LoginRequest;
+import com.mealplanner.dto.MessageResponse;
 import com.mealplanner.dto.RegisterRequest;
 import com.mealplanner.dto.RegisterResponse;
 import com.mealplanner.dto.ResendOtpRequest;
+import com.mealplanner.dto.ResetPasswordRequest;
+import com.mealplanner.dto.ResetTokenResponse;
 import com.mealplanner.dto.VerifyOtpRequest;
+import com.mealplanner.dto.VerifyResetOtpRequest;
 import com.mealplanner.entity.User;
 import com.mealplanner.entity.UserPreference;
 import com.mealplanner.repository.UserRepository;
@@ -160,6 +165,59 @@ public class AuthService {
                 .userId(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
+                .build();
+    }
+
+    /**
+     * Initiates password reset by issuing an OTP if the user exists and is verified.
+     * Always returns generic response to prevent account enumeration.
+     */
+    @Transactional
+    public MessageResponse forgotPassword(ForgotPasswordRequest request) {
+        String cleanEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+
+        userRepository.findByEmail(cleanEmail).ifPresent(user -> {
+            if (user.isVerified()) {
+                otpService.generateAndSendResetOtp(cleanEmail, user.getName());
+            }
+        });
+
+        return MessageResponse.builder()
+                .message("If an account is associated with this email, a verification code has been sent.")
+                .email(cleanEmail)
+                .build();
+    }
+
+    /**
+     * Verifies the 6-digit OTP for password reset and returns a single-use 10-minute reset token.
+     */
+    @Transactional
+    public ResetTokenResponse verifyResetOtp(VerifyResetOtpRequest request) {
+        String cleanEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+        String resetToken = otpService.verifyResetOtpAndGenerateToken(cleanEmail, request.getOtp());
+
+        return ResetTokenResponse.builder()
+                .message("Verification successful. Please set your new password.")
+                .resetToken(resetToken)
+                .build();
+    }
+
+    /**
+     * Consumes the single-use reset token and securely updates the user's password.
+     */
+    @Transactional
+    public MessageResponse resetPassword(ResetPasswordRequest request) {
+        String email = otpService.validateAndConsumeResetToken(request.getResetToken());
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User account not found."));
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        return MessageResponse.builder()
+                .message("Your password has been successfully reset. Please sign in with your new password.")
+                .email(email)
                 .build();
     }
 }

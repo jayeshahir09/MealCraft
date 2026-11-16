@@ -1,10 +1,15 @@
 package com.mealplanner.service;
 
 import com.mealplanner.dto.AuthResponse;
+import com.mealplanner.dto.ForgotPasswordRequest;
 import com.mealplanner.dto.LoginRequest;
+import com.mealplanner.dto.MessageResponse;
 import com.mealplanner.dto.RegisterRequest;
 import com.mealplanner.dto.RegisterResponse;
+import com.mealplanner.dto.ResetPasswordRequest;
+import com.mealplanner.dto.ResetTokenResponse;
 import com.mealplanner.dto.VerifyOtpRequest;
+import com.mealplanner.dto.VerifyResetOtpRequest;
 import com.mealplanner.entity.User;
 import com.mealplanner.entity.UserPreference;
 import com.mealplanner.repository.UserPreferenceRepository;
@@ -177,5 +182,76 @@ class AuthServiceTest {
         when(passwordEncoder.matches("secret123", "hashed_secret123")).thenReturn(false);
 
         assertThrows(BadCredentialsException.class, () -> authService.login(loginRequest));
+    }
+
+    @Test
+    @DisplayName("ForgotPassword - sends reset OTP when user is registered and verified")
+    void testForgotPasswordUserExists() {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("john@example.com")
+                .build();
+
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
+
+        MessageResponse response = authService.forgotPassword(request);
+
+        assertNotNull(response);
+        assertEquals("john@example.com", response.getEmail());
+        assertTrue(response.getMessage().contains("verification code has been sent"));
+        verify(otpService, times(1)).generateAndSendResetOtp("john@example.com", "Chef John");
+    }
+
+    @Test
+    @DisplayName("ForgotPassword - does not dispatch OTP if email not found, but returns standard message")
+    void testForgotPasswordUserNotFound() {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("unknown@example.com")
+                .build();
+
+        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        MessageResponse response = authService.forgotPassword(request);
+
+        assertNotNull(response);
+        assertEquals("unknown@example.com", response.getEmail());
+        verify(otpService, never()).generateAndSendResetOtp(any(), any());
+    }
+
+    @Test
+    @DisplayName("VerifyResetOtp - returns resetToken on successful OTP check")
+    void testVerifyResetOtpSuccess() {
+        VerifyResetOtpRequest request = VerifyResetOtpRequest.builder()
+                .email("john@example.com")
+                .otp("654321")
+                .build();
+
+        when(otpService.verifyResetOtpAndGenerateToken("john@example.com", "654321")).thenReturn("sample-reset-token");
+
+        ResetTokenResponse response = authService.verifyResetOtp(request);
+
+        assertNotNull(response);
+        assertEquals("sample-reset-token", response.getResetToken());
+        verify(otpService, times(1)).verifyResetOtpAndGenerateToken("john@example.com", "654321");
+    }
+
+    @Test
+    @DisplayName("ResetPassword - successfully updates password with BCrypt hash")
+    void testResetPasswordSuccess() {
+        ResetPasswordRequest request = ResetPasswordRequest.builder()
+                .resetToken("sample-reset-token")
+                .newPassword("brandNewPassword99")
+                .build();
+
+        when(otpService.validateAndConsumeResetToken("sample-reset-token")).thenReturn("john@example.com");
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.encode("brandNewPassword99")).thenReturn("new_bcrypt_hash");
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+
+        MessageResponse response = authService.resetPassword(request);
+
+        assertNotNull(response);
+        assertTrue(response.getMessage().contains("successfully reset"));
+        assertEquals("new_bcrypt_hash", testUser.getPasswordHash());
+        verify(userRepository, times(1)).save(testUser);
     }
 }

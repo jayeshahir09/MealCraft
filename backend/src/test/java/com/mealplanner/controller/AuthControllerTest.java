@@ -173,4 +173,111 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.message").value("Invalid email or password"));
     }
+
+    @Test
+    @DisplayName("POST /api/auth/forgot-password - success returns 200 and MessageResponse")
+    void testForgotPasswordSuccess() throws Exception {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("john@example.com")
+                .build();
+
+        MessageResponse response = MessageResponse.builder()
+                .message("If an account is associated with this email, a verification code has been sent.")
+                .email("john@example.com")
+                .build();
+
+        when(authService.forgotPassword(any(ForgotPasswordRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("john@example.com"))
+                .andExpect(jsonPath("$.message").value("If an account is associated with this email, a verification code has been sent."));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/forgot-password - invalid email returns 400")
+    void testForgotPasswordInvalidEmail() throws Exception {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("not-an-email")
+                .build();
+
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/verify-reset-otp - success returns 200 and ResetTokenResponse")
+    void testVerifyResetOtpSuccess() throws Exception {
+        VerifyResetOtpRequest request = VerifyResetOtpRequest.builder()
+                .email("john@example.com")
+                .otp("123456")
+                .build();
+
+        ResetTokenResponse response = ResetTokenResponse.builder()
+                .message("Verification successful.")
+                .resetToken("token-123456-abc")
+                .build();
+
+        when(authService.verifyResetOtp(any(VerifyResetOtpRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/auth/verify-reset-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resetToken").value("token-123456-abc"));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/verify-reset-otp - non 6-digit OTP returns 400")
+    void testVerifyResetOtpInvalidFormat() throws Exception {
+        VerifyResetOtpRequest request = VerifyResetOtpRequest.builder()
+                .email("john@example.com")
+                .otp("12")
+                .build();
+
+        mockMvc.perform(post("/api/auth/verify-reset-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/reset-password - success returns 200 and MessageResponse")
+    void testResetPasswordSuccess() throws Exception {
+        ResetPasswordRequest request = ResetPasswordRequest.builder()
+                .resetToken("valid-token")
+                .newPassword("brandNewPassword123")
+                .build();
+
+        MessageResponse response = MessageResponse.builder()
+                .message("Your password has been successfully reset.")
+                .email("john@example.com")
+                .build();
+
+        when(authService.resetPassword(any(ResetPasswordRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Your password has been successfully reset."));
+    }
+
+    @Test
+    @DisplayName("POST /api/auth/reset-password - password too short returns 400")
+    void testResetPasswordTooShort() throws Exception {
+        ResetPasswordRequest request = ResetPasswordRequest.builder()
+                .resetToken("valid-token")
+                .newPassword("123")
+                .build();
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
 }

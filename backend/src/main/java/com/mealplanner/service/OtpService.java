@@ -1,6 +1,7 @@
 package com.mealplanner.service;
 
 import com.mealplanner.entity.EmailOtp;
+import com.mealplanner.entity.OtpType;
 import com.mealplanner.exception.RateLimitExceededException;
 import com.mealplanner.repository.EmailOtpRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -49,48 +51,27 @@ public class OtpService {
     }
 
     /**
-     * Validates limits, creates a secure OTP, and dispatches the verification email.
+     * Validates limits, creates a secure registration OTP, and dispatches the verification email.
      */
     @Transactional
     public void generateAndSendOtp(String email, String name) {
         String cleanEmail = email.trim().toLowerCase();
 
-        // 1. Validate DNS MX record to ensure domain can receive mail
-        if (!dnsValidationService.hasValidMailDomain(cleanEmail)) {
-            throw new IllegalArgumentException("The email domain does not exist or cannot receive mail.");
-        }
+        validateDomainAndLimits(cleanEmail, OtpType.REGISTRATION);
 
-        // 2. Enforce Hourly Cap (Max 5 requests / hour)
-        LocalDateTime oneHourAgo = LocalDateTime.now().minusHours(1);
-        long requestsInLastHour = otpRepository.countByEmailAndCreatedAtAfter(cleanEmail, oneHourAgo);
-        if (requestsInLastHour >= maxRequestsPerHour) {
-            throw new RateLimitExceededException("Too many verification attempts for this email. Please try again in an hour.");
-        }
+        // Invalidate any currently pending active registration OTPs for this email
+        otpRepository.invalidateAllActiveForEmailAndType(cleanEmail, OtpType.REGISTRATION);
 
-        // 3. Enforce 60-second cooldown between resends
-        otpRepository.findTopByEmailOrderByIdDesc(cleanEmail).ifPresent(lastOtp -> {
-            if (lastOtp.getCreatedAt() != null) {
-                long secondsSince = Duration.between(lastOtp.getCreatedAt(), LocalDateTime.now()).getSeconds();
-                if (secondsSince < cooldownSeconds) {
-                    long remaining = cooldownSeconds - secondsSince;
-                    throw new IllegalArgumentException("Please wait " + remaining + " seconds before requesting a new code.");
-                }
-            }
-        });
+        // Generate secure 6-digit numeric OTP
+        String plainOtp = generateNumericOtp();
 
-        // 4. Invalidate any currently pending active OTPs for this email
-        otpRepository.invalidateAllActiveForEmail(cleanEmail);
-
-        // 5. Generate secure 6-digit numeric OTP
-        int codeInt = secureRandom.nextInt(1_000_000);
-        String plainOtp = String.format("%06d", codeInt);
-
-        // 6. Save salted SHA-256 hash
+        // Save salted SHA-256 hash
         String otpHash = hashOtp(plainOtp, cleanEmail);
 
         EmailOtp emailOtp = EmailOtp.builder()
                 .email(cleanEmail)
                 .otpHash(otpHash)
+                .type(OtpType.REGISTRATION)
                 .attempts(0)
                 .maxAttempts(maxAttempts)
                 .isUsed(false)
@@ -100,19 +81,145 @@ public class OtpService {
 
         otpRepository.save(emailOtp);
 
-        // 7. Send the email
+        // Send the email
         emailService.sendOtpEmail(cleanEmail, name, plainOtp);
     }
 
     /**
-     * Verifies the provided 6-digit code against active records with brute-force lockout.
+     * Validates limits, creates a secure password reset OTP, and dispatches the reset email.
+     */
+    @Transactional
+    public void generateAndSendResetOtp(String email, String name) {
+        String cleanEmail = email.trim().toLowerCase();
+
+        validateDomainAndLimits(cleanEmail, OtpType.PASSWORD_RESET);
+
+        // Invalidate any currently pending active password reset OTPs for this email
+        otpRepository.invalidateAllActiveForEmailAndType(cleanEmail, OtpType.PASSWORD_RESET);
+
+        // Generate secure 6-digit numeric OTP
+        String plainOtp = generateNumericOtp();
+
+        // Save salted SHA-256 hash
+        String otpHash = hashOtp(plainOtp, cleanEmail);
+
+        EmailOtp emailOtp = EmailOtp.builder()
+                .email(cleanEmail)
+                .otpHash(otpHash)
+                .type(OtpType.PASSWORD_RESET)
+                .attempts(0)
+                .maxAttempts(maxAttempts)
+                .isUsed(false)
+                .expiresAt(LocalDateTime.now().plusMinutes(expirationMinutes))
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        otpRepository.save(emailOtp);
+
+        // Send password reset email
+        emailService.sendPasswordResetOtpEmail(cleanEmail, name, plainOtp);
+    }
+
+    /**
+     * Verifies the provided 6-digit code for registration against active records with brute-force lockout.
      */
     @Transactional
     public void verifyOtp(String email, String rawOtp) {
         String cleanEmail = email.trim().toLowerCase();
+        EmailOtp otp = findAndValidateOtp(cleanEmail, rawOtp, OtpType.REGISTRATION);
+
+        // Successful verification - mark as used
+        otp.setUsed(true);
+        otpRepository.save(otp);
+    }
+
+    /**
+     * Verifies the provided 6-digit code for password reset, marks OTP as used,
+     * and generates a cryptographically secure single-use reset token valid for 10 minutes.
+     *
+     * @return Raw reset token to be returned to the client.
+     */
+    @Transactional
+    public String verifyResetOtpAndGenerateToken(String email, String rawOtp) {
+        String cleanEmail = email.trim().toLowerCase();
+        EmailOtp otp = findAndValidateOtp(cleanEmail, rawOtp, OtpType.PASSWORD_RESET);
+
+        // Generate random high-entropy reset token
+        String resetToken = UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
+        String tokenHash = hashToken(resetToken);
+
+        // Attach token and mark OTP used so code cannot be submitted again
+        otp.setUsed(true);
+        otp.setResetTokenHash(tokenHash);
+        otp.setResetTokenExpiresAt(LocalDateTime.now().plusMinutes(expirationMinutes));
+        otpRepository.save(otp);
+
+        return resetToken;
+    }
+
+    /**
+     * Validates and consumes the single-use reset token, returning the associated email.
+     * Throws IllegalArgumentException if token is invalid, expired, or already consumed.
+     */
+    @Transactional
+    public String validateAndConsumeResetToken(String resetToken) {
+        if (resetToken == null || resetToken.trim().isBlank()) {
+            throw new IllegalArgumentException("Reset token is missing or invalid.");
+        }
+
+        String tokenHash = hashToken(resetToken.trim());
+        EmailOtp otp = otpRepository.findTopByResetTokenHashOrderByIdDesc(tokenHash)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired password reset session. Please request a new code."));
+
+        if (otp.isResetTokenExpired()) {
+            otp.setResetTokenHash(null);
+            otp.setResetTokenExpiresAt(LocalDateTime.now().minusSeconds(1));
+            otpRepository.save(otp);
+            throw new IllegalArgumentException("Password reset session has expired. Please request a new code.");
+        }
+
+        // Invalidate token so it can never be reused
+        otp.setResetTokenHash(null);
+        otp.setResetTokenExpiresAt(LocalDateTime.now().minusSeconds(1));
+        otpRepository.save(otp);
+
+        return otp.getEmail();
+    }
+
+    private void validateDomainAndLimits(String cleanEmail, OtpType type) {
+        // 1. Validate DNS MX record to ensure domain can receive mail
+        if (!dnsValidationService.hasValidMailDomain(cleanEmail)) {
+            throw new IllegalArgumentException("The email domain does not exist or cannot receive mail.");
+        }
+
+        // 2. Enforce Hourly Cap (Max 5 requests / hour)
+        LocalDateTime oneHourAgo = LocalDateTime.now().minusHours(1);
+        long requestsInLastHour = otpRepository.countByEmailAndTypeAndCreatedAtAfter(cleanEmail, type, oneHourAgo);
+        if (requestsInLastHour >= maxRequestsPerHour) {
+            throw new RateLimitExceededException("Too many verification attempts for this email. Please try again in an hour.");
+        }
+
+        // 3. Enforce 60-second cooldown between resends
+        otpRepository.findTopByEmailAndTypeOrderByIdDesc(cleanEmail, type).ifPresent(lastOtp -> {
+            if (lastOtp.getCreatedAt() != null) {
+                long secondsSince = Duration.between(lastOtp.getCreatedAt(), LocalDateTime.now()).getSeconds();
+                if (secondsSince < cooldownSeconds) {
+                    long remaining = cooldownSeconds - secondsSince;
+                    throw new IllegalArgumentException("Please wait " + remaining + " seconds before requesting a new code.");
+                }
+            }
+        });
+    }
+
+    private String generateNumericOtp() {
+        int codeInt = secureRandom.nextInt(1_000_000);
+        return String.format("%06d", codeInt);
+    }
+
+    private EmailOtp findAndValidateOtp(String cleanEmail, String rawOtp, OtpType type) {
         String cleanCode = rawOtp != null ? rawOtp.trim() : "";
 
-        EmailOtp otp = otpRepository.findTopByEmailAndIsUsedFalseOrderByIdDesc(cleanEmail)
+        EmailOtp otp = otpRepository.findTopByEmailAndTypeAndIsUsedFalseOrderByIdDesc(cleanEmail, type)
                 .orElseThrow(() -> new IllegalArgumentException("No active verification code found for this email. Please request a new one."));
 
         // Check expiration
@@ -154,15 +261,24 @@ public class OtpService {
             }
         }
 
-        // Successful verification - mark as used
-        otp.setUsed(true);
-        otpRepository.save(otp);
+        return otp;
     }
 
     private String hashOtp(String otp, String email) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             String data = otp + ":" + email + ":" + salt;
+            byte[] hash = digest.digest(data.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 algorithm not available", e);
+        }
+    }
+
+    private String hashToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            String data = token + ":" + salt;
             byte[] hash = digest.digest(data.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
