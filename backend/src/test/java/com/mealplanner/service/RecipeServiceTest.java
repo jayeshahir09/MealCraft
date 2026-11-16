@@ -13,6 +13,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -92,6 +96,20 @@ class RecipeServiceTest {
 
         assertEquals(1, results.size());
         verify(recipeRepository).findByUserIdAndCuisine(1L, "Italian");
+    }
+
+    @Test
+    @DisplayName("getSavedRecipes - retrieves paginated recipes")
+    void testGetSavedRecipesPaginated() {
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(testUser));
+        Pageable pageable = PageRequest.of(0, 10);
+        when(recipeRepository.findByUserId(1L, pageable)).thenReturn(new PageImpl<>(List.of(testRecipe)));
+
+        Page<RecipeDTO> results = recipeService.getSavedRecipes("john@example.com", null, null, pageable);
+
+        assertNotNull(results);
+        assertEquals(1, results.getContent().size());
+        assertEquals("Spaghetti Bolognese", results.getContent().get(0).getTitle());
     }
 
     @Test

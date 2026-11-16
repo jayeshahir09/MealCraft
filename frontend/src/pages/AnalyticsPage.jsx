@@ -142,7 +142,8 @@ export default function AnalyticsPage() {
         setAnalytics(analyticsRes.value.data);
       }
       if (recipesRes.status === 'fulfilled') {
-        setSavedRecipes(recipesRes.value.data || []);
+        const rawRecipes = recipesRes.value.data;
+        setSavedRecipes(Array.isArray(rawRecipes) ? rawRecipes : (rawRecipes?.content || []));
       }
 
       let planData = (planRes.status === 'fulfilled' && planRes.value.data) ? planRes.value.data : null;

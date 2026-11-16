@@ -87,8 +87,9 @@ export default function RecipeSuggestionsPage() {
 
     getSavedRecipes({})
       .then(res => {
-        if (res.data && Array.isArray(res.data)) {
-          const titles = new Set(res.data.map(r => r.title?.trim().toLowerCase()).filter(Boolean));
+        const list = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+        if (list.length > 0) {
+          const titles = new Set(list.map(r => r.title?.trim().toLowerCase()).filter(Boolean));
           setSavedRecipeTitles(titles);
         }
       })

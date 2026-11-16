@@ -6,6 +6,10 @@ import com.mealplanner.dto.RecipeSuggestionRequest;
 import com.mealplanner.dto.RecipeSuggestionResponse;
 import com.mealplanner.service.AIRecipeService;
 import com.mealplanner.service.RecipeService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -39,11 +43,12 @@ public class RecipeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RecipeDTO>> getSavedRecipes(
+    public ResponseEntity<Page<RecipeDTO>> getSavedRecipes(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam(required = false) String cuisine,
-            @RequestParam(required = false) String query) {
-        return ResponseEntity.ok(recipeService.getSavedRecipes(userDetails.getUsername(), cuisine, query));
+            @RequestParam(required = false) String query,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(recipeService.getSavedRecipes(userDetails.getUsername(), cuisine, query, pageable));
     }
 
     @GetMapping("/{id}")

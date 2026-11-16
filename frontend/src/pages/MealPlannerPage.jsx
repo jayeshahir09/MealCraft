@@ -136,7 +136,7 @@ export default function MealPlannerPage() {
   useEffect(() => {
     setLoadingRecipes(true);
     getSavedRecipes({})
-      .then(r => setSavedRecipes(Array.isArray(r.data) ? r.data : []))
+      .then(r => setSavedRecipes(Array.isArray(r.data) ? r.data : (r.data?.content || [])))
       .catch(() => { })
       .finally(() => setLoadingRecipes(false));
 

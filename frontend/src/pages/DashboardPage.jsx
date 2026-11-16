@@ -97,7 +97,7 @@ export default function DashboardPage() {
         // Saved recipes
         let savedList = [];
         if (savedRes.status === 'fulfilled' && savedRes.value.data) {
-          savedList = savedRes.value.data;
+          savedList = Array.isArray(savedRes.value.data) ? savedRes.value.data : (savedRes.value.data?.content || []);
           setSavedRecipes(savedList);
         }
 

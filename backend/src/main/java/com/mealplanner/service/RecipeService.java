@@ -6,6 +6,8 @@ import com.mealplanner.entity.Recipe;
 import com.mealplanner.entity.User;
 import com.mealplanner.repository.RecipeRepository;
 import com.mealplanner.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,19 @@ public class RecipeService {
     public RecipeService(RecipeRepository recipeRepository, UserRepository userRepository) {
         this.recipeRepository = recipeRepository;
         this.userRepository = userRepository;
+    }
+
+    public Page<RecipeDTO> getSavedRecipes(String email, String cuisine, String query, Pageable pageable) {
+        User user = getUser(email);
+        Page<Recipe> recipes;
+        if (query != null && !query.isBlank()) {
+            recipes = recipeRepository.searchByTitle(user.getId(), query, pageable);
+        } else if (cuisine != null && !cuisine.isBlank()) {
+            recipes = recipeRepository.findByUserIdAndCuisine(user.getId(), cuisine, pageable);
+        } else {
+            recipes = recipeRepository.findByUserId(user.getId(), pageable);
+        }
+        return recipes.map(this::toDTO);
     }
 
     public List<RecipeDTO> getSavedRecipes(String email, String cuisine, String query) {

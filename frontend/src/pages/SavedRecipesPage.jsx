@@ -21,7 +21,7 @@ export default function SavedRecipesPage() {
     setLoading(true);
     try {
       const res = await getSavedRecipes({ query: query || undefined, cuisine: cuisine || undefined });
-      const raw = Array.isArray(res.data) ? res.data : [];
+      const raw = Array.isArray(res.data) ? res.data : (res.data?.content || []);
       // Guarantee unique collection by title
       const unique = Array.from(new Map(raw.map(r => [r.title?.trim().toLowerCase(), r])).values());
       setRecipes(unique);

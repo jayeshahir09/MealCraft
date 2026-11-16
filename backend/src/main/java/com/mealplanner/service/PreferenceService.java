@@ -5,6 +5,8 @@ import com.mealplanner.entity.User;
 import com.mealplanner.entity.UserPreference;
 import com.mealplanner.repository.UserPreferenceRepository;
 import com.mealplanner.repository.UserRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,7 @@ public class PreferenceService {
         this.userRepository = userRepository;
     }
 
+    @Cacheable(value = "userPreferences", key = "#email")
     public PreferenceDTO getPreferences(String email) {
         User user = getUser(email);
         UserPreference pref = preferenceRepository.findByUserId(user.getId())
@@ -27,6 +30,7 @@ public class PreferenceService {
     }
 
     @Transactional
+    @CacheEvict(value = "userPreferences", key = "#email")
     public PreferenceDTO updatePreferences(String email, PreferenceDTO dto) {
         User user = getUser(email);
         UserPreference pref = preferenceRepository.findByUserId(user.getId())
